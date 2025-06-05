@@ -9,7 +9,7 @@
   --accent-color: #FF6F61;       /* Warm Coral Accent */
 
   --success-color: #28A745;      /* Green */
-  --warning-color: #FFC107;      /* Amber */
+ --warning-color: #FF9800;     /* Amber */
   --danger-color: #DC3545;       /* Red */
 
   --text-color: #212529;         /* Almost Black for Text */
@@ -162,12 +162,13 @@ img {
 
 .btn-warning {
     background-color: var(--warning-color);
-    color: var(--white);
+    color: var(--black)
 }
 
 .btn-warning:hover {
     background-color: #e68900;
     transform: translateY(-1px);
+    color: black;
 }
 
 .btn-block {
@@ -337,7 +338,7 @@ img {
 
 .badge-warning {
     background-color: var(--warning-color);
-    color: var(--white);
+    color: var(--black)
 }
 
 .badge-danger {

@@ -82,9 +82,21 @@ if (isset($_POST['process_return'])) {
     }
 }
 
+$today = date('Y-m-d');
+$updateFineSql = "
+    UPDATE issued_books
+    SET fine_amount = DATEDIFF(?, return_date) * 1.00
+    WHERE status = 'issued' AND ? > return_date
+";
+$stmt = $conn->prepare($updateFineSql);
+$stmt->bind_param("ss", $today, $today);
+$stmt->execute();
+
 // Handle search and filtering
 $search = isset($_GET['search']) ? trim($_GET['search']) : '';
 $status = isset($_GET['status']) ? trim($_GET['status']) : '';
+
+
 
 // Build the query
 $sql = "
@@ -237,14 +249,32 @@ while ($row = $result->fetch_assoc()) {
                             ?>
                         </td>
                         <td>
-                            <?php 
-                            if ($book['fine_amount'] > 0) {
-                                echo '$' . number_format($book['fine_amount'], 2);
-                            } else {
-                                echo '-';
-                            }
-                            ?>
-                        </td>
+    <?php 
+    if ($book['fine_amount'] > 0) {
+        echo '$' . number_format($book['fine_amount'], 2);
+    } else {
+        // Calculate fine for overdue but not yet returned
+        if ($book['status'] == 'issued') {
+    $today = new DateTime();
+    $dueDate = new DateTime($book['return_date']);
+    if ($today > $dueDate) {
+        $diff = $today->diff($dueDate);
+        $daysOverdue = $diff->days;
+        // Fix: always positive overdue days
+        if ($diff->invert == 0) {
+            $daysOverdue = 0;
+        }
+        $suggestedFine = $daysOverdue * 1.00; // $1 per day overdue
+        echo '<span class="text-danger">$' . number_format($suggestedFine, 2) . ' (pending)</span>';
+    } else {
+        echo '-';
+    }
+} else {
+    echo '-';
+}
+    }
+    ?>
+</td>
                         <td>
                             <?php if ($book['status'] != 'returned'): ?>
                                 <button class="btn btn-sm btn-primary" data-modal-target="returnModal<?php echo $book['id']; ?>">
