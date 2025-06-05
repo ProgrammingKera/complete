@@ -105,6 +105,7 @@ while ($row = $result->fetch_assoc()) {
     $insertFine->bind_param("iids", $row['issued_book_id'], $row['user_id'], $fineAmount, $reason);
     $insertFine->execute();
 }
+
 // Handle search and filtering
 $search = isset($_GET['search']) ? trim($_GET['search']) : '';
 $status = isset($_GET['status']) ? trim($_GET['status']) : '';
@@ -305,15 +306,17 @@ while ($row = $result->fetch_assoc()) {
                                         </div>
                                     </div>
                                 </div>
-                            <?php else: ?>
-                                <a href="payment_details.php?fine_id=<?php echo $fine['id']; ?>" class="btn btn-sm btn-secondary">
+                            <?php endif; ?>
+                            
+                            <a href="fine_details.php?id=<?php echo $fine['id']; ?>" class="btn btn-sm btn-info" style="margin-top: 5px;">
+                                <i class="fas fa-info-circle"></i> Details
+                            </a>
+                            
+                            <?php if ($fine['status'] == 'paid'): ?>
+                                <a href="payment_details.php?fine_id=<?php echo $fine['id']; ?>" class="btn btn-sm btn-secondary" style="margin-top: 5px;">
                                     <i class="fas fa-receipt"></i> View Payment
                                 </a>
                             <?php endif; ?>
-                            
-                            <a href="fine_details.php?id=<?php echo $fine['id']; ?>" class="btn btn-sm btn-info">
-                                <i class="fas fa-info-circle"></i> Details
-                            </a>
                         </td>
                     </tr>
                 <?php endforeach; ?>
@@ -346,9 +349,10 @@ while ($row = $result->fetch_assoc()) {
     display: flex;
     gap: 5px;
 }
+
+.btn {
+    white-space: nowrap;
+}
 </style>
 
-<?php
-// Include footer
-include_once '../includes/footer.php';
-?>
+<?php include_once '../includes/footer.php'; ?>
