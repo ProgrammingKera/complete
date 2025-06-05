@@ -103,10 +103,54 @@ $totalUsers = getTotalUsers($conn);
 $pendingRequests = getPendingRequests($conn);
 $totalFines = getTotalUnpaidFines($conn);
 
+// Get books due today
+$today = date('Y-m-d');
+$dueTodayBooks = [];
+$sql = "
+    SELECT ib.id, b.title, u.name as user_name, ib.issue_date, ib.return_date
+    FROM issued_books ib
+    JOIN books b ON ib.book_id = b.id
+    JOIN users u ON ib.user_id = u.id
+    WHERE DATE(ib.return_date) = CURRENT_DATE
+    AND ib.status = 'issued'
+    ORDER BY ib.return_date ASC
+";
+$result = $conn->query($sql);
+if ($result) {
+    while ($row = $result->fetch_assoc()) {
+        $dueTodayBooks[] = $row;
+    }
+}
+
+// Get overdue books
+$overdueBooks = [];
+$sql = "
+    SELECT ib.id, b.title, u.name AS user_name, ib.issue_date, ib.return_date,
+           DATEDIFF(CURDATE(), ib.return_date) AS days_overdue,
+           (DATEDIFF(CURDATE(), ib.return_date) * 1.00) AS fine_amount
+    FROM issued_books ib
+    JOIN books b ON ib.book_id = b.id
+    JOIN users u ON ib.user_id = u.id
+    WHERE ib.return_date < CURDATE()
+      AND ib.status = 'issued'
+      AND ib.actual_return_date IS NULL
+    ORDER BY ib.return_date ASC
+";
+
+$result = $conn->query($sql);
+
+if ($result) {
+    while ($row = $result->fetch_assoc()) {
+        $overdueBooks[] = $row;
+    }
+} else {
+    die("Query failed: " . $conn->error);
+}
+
 // Get recent activities
 $recentActivities = [];
 $sql = "
-    (SELECT 'book_issued' as type, b.title as title, u.name as user_name, ib.issue_date as date
+    (SELECT 'book_issued' as type, b.title, u.name as user_name, ib.issue_date as date
     FROM issued_books ib
     JOIN books b ON ib.book_id = b.id
     JOIN users u ON ib.user_id = u.id
@@ -115,7 +159,7 @@ $sql = "
     
     UNION
     
-    (SELECT 'book_returned' as type, b.title as title, u.name as user_name, ib.actual_return_date as date
+    (SELECT 'book_returned' as type, b.title, u.name as user_name, ib.actual_return_date as date
     FROM issued_books ib
     JOIN books b ON ib.book_id = b.id
     JOIN users u ON ib.user_id = u.id
@@ -137,52 +181,10 @@ $sql = "
     ORDER BY date DESC
     LIMIT 10
 ";
-
 $result = $conn->query($sql);
 if ($result) {
     while ($row = $result->fetch_assoc()) {
         $recentActivities[] = $row;
-    }
-}
-
-// Get books due today
-$today = date('Y-m-d');
-$dueTodayBooks = [];
-$sql = "
-    SELECT ib.id, b.title, u.name as user_name, ib.issue_date, ib.return_date
-    FROM issued_books ib
-    JOIN books b ON ib.book_id = b.id
-    JOIN users u ON ib.user_id = u.id
-    WHERE DATE(ib.return_date) = CURRENT_DATE()
-    AND ib.status = 'issued'
-    ORDER BY ib.return_date ASC
-";
-
-$stmt = $conn->prepare($sql);
-$stmt->execute();
-$result = $stmt->get_result();
-if ($result) {
-    while ($row = $result->fetch_assoc()) {
-        $dueTodayBooks[] = $row;
-    }
-}
-
-// Get overdue books
-$overdueBooks = [];
-$sql = "
-    SELECT ib.id, b.title, u.name as user_name, ib.issue_date, ib.return_date, 
-           DATEDIFF(CURRENT_DATE, ib.return_date) as days_overdue
-    FROM issued_books ib
-    JOIN books b ON ib.book_id = b.id
-    JOIN users u ON ib.user_id = u.id
-    WHERE ib.return_date < CURRENT_DATE
-    AND ib.status = 'issued'
-    ORDER BY ib.return_date ASC
-";
-$result = $conn->query($sql);
-if ($result) {
-    while ($row = $result->fetch_assoc()) {
-        $overdueBooks[] = $row;
     }
 }
 ?>
@@ -266,17 +268,17 @@ if ($result) {
                                     <h4 class="activity-title">
                                         <?php 
                                         if ($activity['type'] == 'book_issued') {
-                                            echo 'Book Issued: ' . $activity['title'];
+                                            echo 'Book Issued: ' . htmlspecialchars($activity['title']);
                                         } elseif ($activity['type'] == 'book_returned') {
-                                            echo 'Book Returned: ' . $activity['title'];
+                                            echo 'Book Returned: ' . htmlspecialchars($activity['title']);
                                         } elseif ($activity['type'] == 'fine_paid') {
-                                            echo $activity['title'];
+                                            echo htmlspecialchars($activity['title']);
                                         }
                                         ?>
                                     </h4>
                                     <div class="activity-meta">
                                         <span class="activity-time"><?php echo date('M d, Y', strtotime($activity['date'])); ?></span>
-                                        <span class="activity-user"><?php echo $activity['user_name']; ?></span>
+                                        <span class="activity-user"><?php echo htmlspecialchars($activity['user_name']); ?></span>
                                     </div>
                                 </div>
                             </li>
@@ -328,8 +330,8 @@ if ($result) {
                             <tbody>
                                 <?php while ($row = $result->fetch_assoc()): ?>
                                     <tr>
-                                        <td><?php echo $row['title']; ?></td>
-                                        <td><?php echo $row['user_name']; ?></td>
+                                        <td><?php echo htmlspecialchars($row['title']); ?></td>
+                                        <td><?php echo htmlspecialchars($row['user_name']); ?></td>
                                         <td><?php echo date('M d, Y', strtotime($row['request_date'])); ?></td>
                                         <td>
                                             <a href="?request_id=<?php echo $row['id']; ?>&action=approve" class="btn btn-sm btn-success">Approve</a>
@@ -412,6 +414,7 @@ if ($result) {
                                     <th>User</th>
                                     <th>Due Date</th>
                                     <th>Days Overdue</th>
+                                    <th>Fine Amount</th>
                                     <th>Action</th>
                                 </tr>
                             </thead>
@@ -421,7 +424,8 @@ if ($result) {
                                         <td><?php echo htmlspecialchars($book['title']); ?></td>
                                         <td><?php echo htmlspecialchars($book['user_name']); ?></td>
                                         <td><?php echo date('M d, Y', strtotime($book['return_date'])); ?></td>
-                                        <td><?php echo $book['days_overdue']; ?> days</td>
+                                        <td class="text-danger"><?php echo $book['return_date']; ?> days</td>
+                                        <td class="text-danger">$<?php echo number_format($book['fine_amount'], 2); ?></td>
                                         <td>
                                             <a href="process_return.php?id=<?php echo $book['id']; ?>" class="btn btn-sm btn-primary">Process Return</a>
                                         </td>
