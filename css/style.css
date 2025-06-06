@@ -52,7 +52,8 @@ a {
 }
 
 a:hover {
-    color: var(--primary-light);
+    color: black;
+    
 }
 
 ul {
@@ -124,7 +125,7 @@ img {
 }
 
 .btn-primary:hover {
-    background-color: var(--primary-dark);
+    background-color: #0856b3; /* Slightly deeper blue for hover */
     transform: translateY(-1px);
     box-shadow: 0 4px 8px rgba(13, 71, 161, 0.2);
 }
@@ -137,6 +138,7 @@ img {
 .btn-secondary:hover {
     background-color: var(--gray-300);
     transform: translateY(-1px);
+    font-weight: bold;
 }
 
 .btn-success {
@@ -146,6 +148,7 @@ img {
 
 .btn-success:hover {
     background-color: #3d8b40;
+    color: #f7f7f7;
     transform: translateY(-1px);
 }
 

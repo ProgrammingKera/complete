@@ -110,11 +110,10 @@ while ($row = $result->fetch_assoc()) {
                     <?php endforeach; ?>
                 </select>
             </div>
+            </form>
             
-            <button type="submit" class="btn btn-primary">
-                <i class="fas fa-search"></i> Search
-            </button>
-        </form>
+
+        
     </div>
 
     <div class="books-grid">

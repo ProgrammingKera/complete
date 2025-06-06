@@ -334,7 +334,7 @@ if ($result) {
                                         <td><?php echo htmlspecialchars($row['user_name']); ?></td>
                                         <td><?php echo date('M d, Y', strtotime($row['request_date'])); ?></td>
                                         <td>
-                                            <a href="?request_id=<?php echo $row['id']; ?>&action=approve" class="btn btn-sm btn-success">Approve</a>
+                                            <a href="?request_id=<?php echo $row['id']; ?>&action=approve" style="margin-bottom:10px"; class="btn btn-sm btn-success">Approve</a>
                                             <a href="?request_id=<?php echo $row['id']; ?>&action=reject" class="btn btn-sm btn-danger">Reject</a>
                                         </td>
                                     </tr>

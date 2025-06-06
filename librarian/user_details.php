@@ -59,7 +59,7 @@ $fines = $stmt->get_result();
     </div>
 </div>
 
-<div class="dashboard-row">
+<div class="dashboard-row" style="margin-top:30px";>
     <div class="dashboard-col">
         <div class="card">
             <div class="card-header">
@@ -220,7 +220,7 @@ $fines = $stmt->get_result();
     <div class="card-header">
         <h3>Issued Books History</h3>
     </div>
-    <div class="card-body">
+    <div class="card-body" >
         <div class="table-container">
             <table class="table table-striped">
                 <thead>
