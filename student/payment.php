@@ -113,9 +113,10 @@ if (isset($_POST['process_payment']) && $fine) {
             // Commit transaction
             $conn->commit();
             
-            // Redirect to success page
-            header("Location: payment_success.php?receipt=$receiptNumber&transaction=$transactionId");
-            exit();
+            // Set success message and redirect after showing it
+            $message = "Payment processed successfully! Redirecting to receipt...";
+            $messageType = "success";
+            $redirectUrl = "payment_success.php?receipt=$receiptNumber&transaction=$transactionId";
             
         } catch (Exception $e) {
             // Rollback transaction
@@ -145,10 +146,18 @@ $conn->query($sql);
     </div>
 
     <?php if (!empty($message)): ?>
-        <div class="alert alert-<?php echo $messageType; ?>">
+        <div class="alert alert-<?php echo $messageType; ?>" id="payment-alert">
             <i class="fas fa-<?php echo $messageType == 'success' ? 'check-circle' : 'exclamation-circle'; ?>"></i>
             <?php echo $message; ?>
         </div>
+        
+        <?php if ($messageType == 'success' && isset($redirectUrl)): ?>
+            <script>
+                setTimeout(function() {
+                    window.location.href = '<?php echo $redirectUrl; ?>';
+                }, 2000);
+            </script>
+        <?php endif; ?>
     <?php endif; ?>
 
     <?php if ($fine): ?>
@@ -288,6 +297,29 @@ $conn->query($sql);
                         
                         <div id="card-errors" class="card-errors"></div>
                         
+                        <!-- Processing Overlay -->
+                        <div id="processing-overlay" class="processing-overlay">
+                            <div class="processing-content">
+                                <div class="spinner"></div>
+                                <h3>Processing Payment...</h3>
+                                <p>Please wait while we process your payment securely.</p>
+                                <div class="processing-steps">
+                                    <div class="step active" id="step-1">
+                                        <i class="fas fa-credit-card"></i>
+                                        <span>Validating Card</span>
+                                    </div>
+                                    <div class="step" id="step-2">
+                                        <i class="fas fa-shield-alt"></i>
+                                        <span>Securing Transaction</span>
+                                    </div>
+                                    <div class="step" id="step-3">
+                                        <i class="fas fa-check-circle"></i>
+                                        <span>Completing Payment</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
                         <div class="payment-actions">
                             <a href="fines.php" class="btn btn-secondary">
                                 <i class="fas fa-arrow-left"></i> Cancel
@@ -408,6 +440,7 @@ $conn->query($sql);
 
 .summary-body, .payment-form-body {
     padding: 30px;
+    position: relative;
 }
 
 .book-info {
@@ -583,6 +616,82 @@ $conn->query($sql);
     font-weight: 500;
 }
 
+.processing-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(255, 255, 255, 0.95);
+    display: none;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+    border-radius: 15px;
+}
+
+.processing-content {
+    text-align: center;
+    padding: 40px;
+}
+
+.spinner {
+    width: 60px;
+    height: 60px;
+    border: 4px solid var(--gray-200);
+    border-top: 4px solid var(--primary-color);
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+    margin: 0 auto 20px;
+}
+
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
+.processing-content h3 {
+    color: var(--primary-color);
+    margin-bottom: 10px;
+    font-size: 1.5em;
+}
+
+.processing-content p {
+    color: var(--text-light);
+    margin-bottom: 30px;
+}
+
+.processing-steps {
+    display: flex;
+    justify-content: center;
+    gap: 30px;
+    flex-wrap: wrap;
+}
+
+.step {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+    opacity: 0.5;
+    transition: var(--transition);
+}
+
+.step.active {
+    opacity: 1;
+    color: var(--primary-color);
+}
+
+.step i {
+    font-size: 1.5em;
+    margin-bottom: 5px;
+}
+
+.step span {
+    font-size: 0.9em;
+    font-weight: 500;
+}
+
 .payment-actions {
     display: flex;
     justify-content: space-between;
@@ -665,6 +774,10 @@ $conn->query($sql);
     .accepted-cards {
         justify-content: center;
     }
+    
+    .processing-steps {
+        gap: 20px;
+    }
 }
 
 @media (max-width: 480px) {
@@ -680,6 +793,11 @@ $conn->query($sql);
     .amount {
         font-size: 1.6em;
     }
+    
+    .processing-steps {
+        flex-direction: column;
+        gap: 15px;
+    }
 }
 </style>
 
@@ -694,6 +812,7 @@ document.addEventListener('DOMContentLoaded', function() {
     const cardErrors = document.getElementById('card-errors');
     const submitButton = document.getElementById('submit-payment');
     const form = document.getElementById('payment-form');
+    const processingOverlay = document.getElementById('processing-overlay');
     
     // Card number formatting and validation
     cardNumberInput.addEventListener('input', function(e) {
@@ -835,26 +954,36 @@ document.addEventListener('DOMContentLoaded', function() {
         cardErrors.style.display = 'none';
     }
     
-    // Form submission
-    form.addEventListener('submit', function(e) {
-        const cardNumber = cardNumberInput.value.replace(/\s/g, '');
+    function showProcessingSteps() {
+        processingOverlay.style.display = 'flex';
         
-        if (!luhnCheck(cardNumber)) {
-            e.preventDefault();
-            showError('Please enter a valid card number.');
-            return;
-        }
+        // Simulate processing steps
+        setTimeout(() => {
+            document.getElementById('step-1').classList.remove('active');
+            document.getElementById('step-2').classList.add('active');
+        }, 1000);
+        
+        setTimeout(() => {
+            document.getElementById('step-2').classList.remove('active');
+            document.getElementById('step-3').classList.add('active');
+        }, 2000);
+    }
+    
+    // Form submission
+   form.addEventListener('submit', function(e) {
+    const cardNumber = cardNumberInput.value.replace(/\s/g, '');
+    if (!luhnCheck(cardNumber)) {
+        e.preventDefault();
+        showError('Please enter a valid card number.');
+        return;
+    }
         
         hideError();
         
-        // Show processing state
-        submitButton.disabled = true;
-        submitButton.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Processing Payment...';
+        // Show processing overlay
+        showProcessingSteps();
         
-        // Add a small delay to show the processing state
-        setTimeout(() => {
-            // The form will submit naturally after this
-        }, 500);
+        
     });
     
     // Initial validation

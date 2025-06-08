@@ -99,16 +99,35 @@ document.addEventListener('DOMContentLoaded', function() {
                 }, 5000);
             }
             
-            // Add close button
+            // Add close button (X)
             const closeBtn = document.createElement('button');
             closeBtn.className = 'alert-close';
             closeBtn.innerHTML = '&times;';
+            closeBtn.setAttribute('aria-label', 'Close');
+            closeBtn.style.position = 'absolute';
+            closeBtn.style.top = '8px';
+            closeBtn.style.right = '12px';
+            closeBtn.style.background = 'transparent';
+            closeBtn.style.border = 'none';
+            closeBtn.style.fontSize = '1.5rem';
+            closeBtn.style.cursor = 'pointer';
+            closeBtn.style.color = '#333';
+            closeBtn.style.lineHeight = '1';
+            closeBtn.style.padding = '0';
+            closeBtn.style.zIndex = '10';
+            closeBtn.addEventListener('mouseenter', function() {
+                closeBtn.style.color = '#c00';
+            });
+            closeBtn.addEventListener('mouseleave', function() {
+                closeBtn.style.color = '#333';
+            });
             closeBtn.addEventListener('click', function() {
                 alert.style.opacity = '0';
                 setTimeout(() => {
                     alert.remove();
                 }, 300);
             });
+            alert.style.position = 'relative';
             alert.appendChild(closeBtn);
         });
     }
