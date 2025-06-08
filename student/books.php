@@ -110,6 +110,9 @@ while ($row = $result->fetch_assoc()) {
                     <?php endforeach; ?>
                 </select>
             </div>
+            <button type="submit" class="btn btn-primary">
+                <i class="fas fa-search"></i> Search
+            </button>
             </form>
             
 

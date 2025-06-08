@@ -122,7 +122,7 @@ if ($result) {
     }
 }
 
-// Get overdue books
+// Get overdue books with correct calculation
 $overdueBooks = [];
 $sql = "
     SELECT ib.id, b.title, u.name AS user_name, ib.issue_date, ib.return_date,
@@ -424,7 +424,7 @@ if ($result) {
                                         <td><?php echo htmlspecialchars($book['title']); ?></td>
                                         <td><?php echo htmlspecialchars($book['user_name']); ?></td>
                                         <td><?php echo date('M d, Y', strtotime($book['return_date'])); ?></td>
-                                        <td class="text-danger"><?php echo $book['return_date']; ?> days</td>
+                                        <td class="text-danger"><?php echo $book['days_overdue']; ?> days</td>
                                         <td class="text-danger">$<?php echo number_format($book['fine_amount'], 2); ?></td>
                                         <td>
                                             <a href="process_return.php?id=<?php echo $book['id']; ?>" class="btn btn-sm btn-primary">Process Return</a>
