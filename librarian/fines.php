@@ -210,7 +210,7 @@ while ($row = $result->fetch_assoc()) {
     </div>
 </div>
 
-<div class="table-container" style="margin-top:30px";>
+<div class="table-container" style="margin-top:30px;">
     <table class="table table-striped">
         <thead>
             <tr>
@@ -265,7 +265,7 @@ while ($row = $result->fetch_assoc()) {
                                 
                                 <!-- Payment Modal -->
                                 <div class="modal-overlay" id="paymentModal<?php echo $fine['id']; ?>">
-                                    <div class="modal">
+                                    <div class="modal payment-modal">
                                         <div class="modal-header">
                                             <h3 class="modal-title">Record Fine Payment</h3>
                                             <button class="modal-close">&times;</button>
@@ -275,7 +275,7 @@ while ($row = $result->fetch_assoc()) {
                                                 issued to <strong><?php echo htmlspecialchars($fine['user_name']); ?></strong>
                                                 for the book <strong><?php echo htmlspecialchars($fine['book_title']); ?></strong>.</p>
                                             
-                                            <form action="" method="POST">
+                                            <form action="" method="POST" id="paymentForm<?php echo $fine['id']; ?>">
                                                 <input type="hidden" name="fine_id" value="<?php echo $fine['id']; ?>">
                                                 
                                                 <div class="form-group">
@@ -287,15 +287,27 @@ while ($row = $result->fetch_assoc()) {
                                                     <label for="payment_method<?php echo $fine['id']; ?>">Payment Method</label>
                                                     <select id="payment_method<?php echo $fine['id']; ?>" name="payment_method" class="form-control" required>
                                                         <option value="cash">Cash</option>
-                                                        <option value="card">Credit/Debit Card</option>
-                                                        <option value="bank_transfer">Bank Transfer</option>
-                                                        <option value="other">Other</option>
+                                                        <option value="stripe">Credit Card</option>
+                                                        
+                                                        
                                                     </select>
                                                 </div>
                                                 
                                                 <div class="form-group">
                                                     <label for="receipt_number<?php echo $fine['id']; ?>">Receipt Number (Optional)</label>
                                                     <input type="text" id="receipt_number<?php echo $fine['id']; ?>" name="receipt_number" class="form-control">
+                                                </div>
+                                                
+                                                <div class="stripe-payment-section" id="stripeSection<?php echo $fine['id']; ?>" style="display: none;">
+                                                    <div class="alert alert-info">
+                                                        <i class="fas fa-info-circle"></i>
+                                                        <strong>Stripe Payment Integration</strong><br>
+                                                        To process Stripe payments, you need to set up your Stripe account and configure the payment gateway.
+                                                    </div>
+                                                    
+                                                    <button type="button" class="btn btn-success" onclick="processStripePayment(<?php echo $fine['id']; ?>, <?php echo $fine['amount']; ?>)">
+                                                        <i class="fab fa-stripe"></i> Process Stripe Payment
+                                                    </button>
                                                 </div>
                                                 
                                                 <div class="form-group text-right">
@@ -329,6 +341,47 @@ while ($row = $result->fetch_assoc()) {
     </table>
 </div>
 
+<!-- Stripe Payment Modal -->
+<div class="modal-overlay" id="stripePaymentModal">
+    <div class="modal payment-modal">
+        <div class="modal-header">
+            <h3 class="modal-title">Stripe Payment Processing</h3>
+            <button class="modal-close" onclick="closeStripeModal()">&times;</button>
+        </div>
+        <div class="modal-body">
+            <div class="stripe-payment-container">
+                <div class="payment-info">
+                    <h4>Payment Details</h4>
+                    <div class="payment-summary">
+                        <div class="payment-item">
+                            <span>Amount:</span>
+                            <span id="stripeAmount">$0.00</span>
+                        </div>
+                        <div class="payment-item">
+                            <span>Fine ID:</span>
+                            <span id="stripeFineId">#</span>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="stripe-form">
+                    <div id="card-element">
+                        <!-- Stripe Elements will create form elements here -->
+                    </div>
+                    <div id="card-errors" role="alert"></div>
+                </div>
+                
+                <div class="stripe-actions">
+                    <button type="button" class="btn btn-secondary" onclick="closeStripeModal()">Cancel</button>
+                    <button type="button" class="btn btn-success" id="submit-payment">
+                        <i class="fas fa-credit-card"></i> Pay Now
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
 <style>
 .badge-container {
     display: flex;
@@ -353,6 +406,216 @@ while ($row = $result->fetch_assoc()) {
 .btn {
     white-space: nowrap;
 }
+
+.payment-modal .modal {
+    max-width: 600px;
+}
+
+.stripe-payment-section {
+    margin-top: 20px;
+    padding: 20px;
+    background: #f8f9fa;
+    border-radius: 8px;
+    border: 1px solid #e9ecef;
+}
+
+.stripe-payment-container {
+    max-width: 500px;
+    margin: 0 auto;
+}
+
+.payment-info {
+    margin-bottom: 30px;
+}
+
+.payment-summary {
+    background: #f8f9fa;
+    padding: 15px;
+    border-radius: 8px;
+    margin-top: 15px;
+}
+
+.payment-item {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 10px;
+    font-weight: 500;
+}
+
+.payment-item:last-child {
+    margin-bottom: 0;
+    font-size: 1.1em;
+    color: #0d47a1;
+}
+
+.stripe-form {
+    margin-bottom: 30px;
+}
+
+#card-element {
+    padding: 15px;
+    border: 1px solid #ccc;
+    border-radius: 8px;
+    background: white;
+}
+
+#card-errors {
+    color: #dc3545;
+    margin-top: 10px;
+    font-size: 0.9em;
+}
+
+.stripe-actions {
+    text-align: center;
+}
+
+.stripe-actions .btn {
+    margin: 0 10px;
+    min-width: 120px;
+}
 </style>
+
+<script>
+// Show/hide Stripe payment section based on payment method selection
+document.addEventListener('DOMContentLoaded', function() {
+    const paymentMethodSelects = document.querySelectorAll('[id^="payment_method"]');
+    
+    paymentMethodSelects.forEach(select => {
+        const fineId = select.id.replace('payment_method', '');
+        const stripeSection = document.getElementById('stripeSection' + fineId);
+        
+        select.addEventListener('change', function() {
+            if (this.value === 'stripe') {
+                stripeSection.style.display = 'block';
+            } else {
+                stripeSection.style.display = 'none';
+            }
+        });
+    });
+});
+
+// Stripe payment processing
+let stripe;
+let elements;
+let cardElement;
+let currentFineId;
+let currentAmount;
+
+function processStripePayment(fineId, amount) {
+    currentFineId = fineId;
+    currentAmount = amount;
+    
+    document.getElementById('stripeFineId').textContent = '#' + fineId;
+    document.getElementById('stripeAmount').textContent = '$' + amount.toFixed(2);
+    
+    // Show Stripe modal
+    document.getElementById('stripePaymentModal').classList.add('active');
+    
+    // Initialize Stripe (you need to add your publishable key)
+    initializeStripe();
+}
+
+function initializeStripe() {
+    // Note: Replace 'pk_test_...' with your actual Stripe publishable key
+    const stripePublishableKey = 'pk_test_51234567890abcdef'; // Add your Stripe publishable key here
+    
+    if (!stripe) {
+        stripe = Stripe(stripePublishableKey);
+        elements = stripe.elements();
+        
+        cardElement = elements.create('card', {
+            style: {
+                base: {
+                    fontSize: '16px',
+                    color: '#424770',
+                    '::placeholder': {
+                        color: '#aab7c4',
+                    },
+                },
+            },
+        });
+        
+        cardElement.mount('#card-element');
+        
+        cardElement.on('change', function(event) {
+            const displayError = document.getElementById('card-errors');
+            if (event.error) {
+                displayError.textContent = event.error.message;
+            } else {
+                displayError.textContent = '';
+            }
+        });
+        
+        // Handle form submission
+        document.getElementById('submit-payment').addEventListener('click', handleStripePayment);
+    }
+}
+
+async function handleStripePayment() {
+    const submitButton = document.getElementById('submit-payment');
+    submitButton.disabled = true;
+    submitButton.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Processing...';
+    
+    try {
+        // Create payment method
+        const {error, paymentMethod} = await stripe.createPaymentMethod({
+            type: 'card',
+            card: cardElement,
+        });
+        
+        if (error) {
+            document.getElementById('card-errors').textContent = error.message;
+            submitButton.disabled = false;
+            submitButton.innerHTML = '<i class="fas fa-credit-card"></i> Pay Now';
+            return;
+        }
+        
+        // Send payment to your server
+        const response = await fetch('process_stripe_payment.php', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                payment_method_id: paymentMethod.id,
+                amount: Math.round(currentAmount * 100), // Convert to cents
+                fine_id: currentFineId,
+                currency: 'usd'
+            }),
+        });
+        
+        const result = await response.json();
+        
+        if (result.success) {
+            // Payment successful
+            alert('Payment processed successfully!');
+            closeStripeModal();
+            location.reload(); // Refresh the page to show updated status
+        } else {
+            document.getElementById('card-errors').textContent = result.error || 'Payment failed. Please try again.';
+        }
+    } catch (error) {
+        document.getElementById('card-errors').textContent = 'An error occurred. Please try again.';
+    }
+    
+    submitButton.disabled = false;
+    submitButton.innerHTML = '<i class="fas fa-credit-card"></i> Pay Now';
+}
+
+function closeStripeModal() {
+    document.getElementById('stripePaymentModal').classList.remove('active');
+    
+    // Clear any error messages
+    document.getElementById('card-errors').textContent = '';
+    
+    // Clear the card element
+    if (cardElement) {
+        cardElement.clear();
+    }
+}
+</script>
+
+<!-- Include Stripe.js -->
+<script src="https://js.stripe.com/v3/"></script>
 
 <?php include_once '../includes/footer.php'; ?>
