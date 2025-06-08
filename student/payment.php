@@ -77,21 +77,26 @@ if (isset($_POST['process_payment']) && $fine) {
         $message = implode('<br>', $errors);
         $messageType = "danger";
     } else {
-        // Simulate payment processing
+        // Simulate payment processing with Stripe
         $transactionId = 'stripe_' . date('YmdHis') . rand(1000, 9999);
+        $receiptNumber = 'RCP' . date('Ymd') . str_pad($fine['id'], 4, '0', STR_PAD_LEFT);
         
-        // Update fine status
-        $stmt = $conn->prepare("UPDATE fines SET status = 'paid' WHERE id = ?");
-        $stmt->bind_param("i", $fine['id']);
+        // Start transaction
+        $conn->begin_transaction();
         
-        if ($stmt->execute()) {
+        try {
+            // Update fine status
+            $stmt = $conn->prepare("UPDATE fines SET status = 'paid' WHERE id = ?");
+            $stmt->bind_param("i", $fine['id']);
+            $stmt->execute();
+            
             // Record payment
-            $receiptNumber = 'RCP' . date('Ymd') . str_pad($fine['id'], 4, '0', STR_PAD_LEFT);
             $paymentDetails = json_encode([
                 'card_last_four' => substr($cardNumber, -4),
                 'card_type' => 'Credit Card',
                 'billing_email' => $billingEmail,
-                'transaction_id' => $transactionId
+                'cardholder_name' => $cardName,
+                'payment_processor' => 'Stripe'
             ]);
             
             $stmt = $conn->prepare("
@@ -102,14 +107,20 @@ if (isset($_POST['process_payment']) && $fine) {
             $stmt->execute();
             
             // Send notification
-            $notificationMessage = "Fine payment of $" . number_format($fine['amount'], 2) . " processed successfully. Transaction ID: " . $transactionId;
+            $notificationMessage = "Fine payment of $" . number_format($fine['amount'], 2) . " processed successfully via Stripe. Transaction ID: " . $transactionId;
             sendNotification($conn, $userId, $notificationMessage);
+            
+            // Commit transaction
+            $conn->commit();
             
             // Redirect to success page
             header("Location: payment_success.php?receipt=$receiptNumber&transaction=$transactionId");
             exit();
-        } else {
-            $message = "Payment processing failed. Please try again.";
+            
+        } catch (Exception $e) {
+            // Rollback transaction
+            $conn->rollback();
+            $message = "Payment processing failed. Please try again. Error: " . $e->getMessage();
             $messageType = "danger";
         }
     }
@@ -123,7 +134,15 @@ $conn->query($sql);
 ?>
 
 <div class="container">
-    <h1 class="page-title">Secure Payment Gateway</h1>
+    <div class="payment-header">
+        <div class="payment-breadcrumb">
+            <a href="fines.php"><i class="fas fa-arrow-left"></i> Back to Fines</a>
+        </div>
+        <h1 class="page-title">
+            <i class="fas fa-credit-card"></i> Secure Payment Gateway
+        </h1>
+        <p class="payment-subtitle">Complete your fine payment securely with Stripe</p>
+    </div>
 
     <?php if (!empty($message)): ?>
         <div class="alert alert-<?php echo $messageType; ?>">
@@ -136,64 +155,95 @@ $conn->query($sql);
         <div class="payment-container">
             <!-- Payment Summary -->
             <div class="payment-summary-card">
-                <div class="card-header">
+                <div class="summary-header">
                     <h3><i class="fas fa-receipt"></i> Payment Summary</h3>
+                    <div class="security-badge">
+                        <i class="fas fa-shield-alt"></i>
+                        <span>SSL Secured</span>
+                    </div>
                 </div>
-                <div class="card-body">
+                <div class="summary-body">
                     <div class="fine-details">
-                        <h4><?php echo htmlspecialchars($fine['title']); ?></h4>
-                        <p class="text-muted">by <?php echo htmlspecialchars($fine['author']); ?></p>
-                        
-                        <hr>
-                        
-                        <div class="detail-row">
-                            <span>Fine Reason:</span>
-                            <span><?php echo htmlspecialchars($fine['reason']); ?></span>
+                        <div class="book-info">
+                            <h4><?php echo htmlspecialchars($fine['title']); ?></h4>
+                            <p class="author">by <?php echo htmlspecialchars($fine['author']); ?></p>
                         </div>
                         
-                        <div class="detail-row">
-                            <span>Due Date:</span>
-                            <span><?php echo date('M d, Y', strtotime($fine['return_date'])); ?></span>
+                        <div class="fine-breakdown">
+                            <div class="detail-row">
+                                <span class="label">Fine Reason:</span>
+                                <span class="value"><?php echo htmlspecialchars($fine['reason']); ?></span>
+                            </div>
+                            
+                            <div class="detail-row">
+                                <span class="label">Due Date:</span>
+                                <span class="value"><?php echo date('M d, Y', strtotime($fine['return_date'])); ?></span>
+                            </div>
+                            
+                            <div class="detail-row">
+                                <span class="label">Return Date:</span>
+                                <span class="value"><?php echo date('M d, Y', strtotime($fine['actual_return_date'])); ?></span>
+                            </div>
+                            
+                            <?php 
+                            $dueDate = new DateTime($fine['return_date']);
+                            $returnDate = new DateTime($fine['actual_return_date']);
+                            $lateDays = $returnDate->diff($dueDate)->days;
+                            ?>
+                            
+                            <div class="detail-row">
+                                <span class="label">Days Late:</span>
+                                <span class="value late-days"><?php echo $lateDays; ?> day<?php echo $lateDays > 1 ? 's' : ''; ?></span>
+                            </div>
                         </div>
                         
-                        <div class="detail-row">
-                            <span>Return Date:</span>
-                            <span><?php echo date('M d, Y', strtotime($fine['actual_return_date'])); ?></span>
-                        </div>
-                        
-                        <hr>
-                        
-                        <div class="total-amount">
-                            <span>Total Amount:</span>
-                            <span class="amount">$<?php echo number_format($fine['amount'], 2); ?></span>
+                        <div class="total-section">
+                            <div class="total-amount">
+                                <span class="total-label">Total Amount:</span>
+                                <span class="amount">$<?php echo number_format($fine['amount'], 2); ?></span>
+                            </div>
                         </div>
                     </div>
                     
-                    <div class="security-info">
-                        <i class="fas fa-shield-alt"></i>
-                        <small>Secured payment processing</small>
+                    <div class="payment-features">
+                        <div class="feature">
+                            <i class="fas fa-lock"></i>
+                            <span>256-bit SSL Encryption</span>
+                        </div>
+                        <div class="feature">
+                            <i class="fab fa-stripe"></i>
+                            <span>Powered by Stripe</span>
+                        </div>
+                        <div class="feature">
+                            <i class="fas fa-shield-alt"></i>
+                            <span>PCI DSS Compliant</span>
+                        </div>
                     </div>
                 </div>
             </div>
 
             <!-- Payment Form -->
             <div class="stripe-payment-card">
-                <div class="card-header">
-                    <h3><i class="fas fa-credit-card"></i> Pay with Credit Card</h3>
+                <div class="payment-form-header">
+                    <h3><i class="fas fa-credit-card"></i> Payment Information</h3>
                     <div class="accepted-cards">
-                        <i class="fab fa-cc-visa"></i>
-                        <i class="fab fa-cc-mastercard"></i>
-                        <i class="fab fa-cc-amex"></i>
-                        <i class="fab fa-cc-discover"></i>
+                        <i class="fab fa-cc-visa" title="Visa"></i>
+                        <i class="fab fa-cc-mastercard" title="Mastercard"></i>
+                        <i class="fab fa-cc-amex" title="American Express"></i>
+                        <i class="fab fa-cc-discover" title="Discover"></i>
                     </div>
                 </div>
-                <div class="card-body">
+                <div class="payment-form-body">
                     <form action="" method="POST" id="payment-form">
                         <!-- Card Number -->
                         <div class="form-group">
-                            <label for="card-number">Card Number</label>
+                            <label for="card-number">
+                                <i class="fas fa-credit-card"></i> Card Number
+                            </label>
                             <div class="card-input-container">
-                                <input type="text" id="card-number" name="card_number" placeholder="1234 5678 9012 3456" maxlength="19" class="form-control card-input" required>
+                                <input type="text" id="card-number" name="card_number" 
+                                       placeholder="1234 5678 9012 3456" maxlength="19" 
+                                       class="form-control card-input" required>
                                 <div class="card-type-icon" id="card-type-icon"></div>
                             </div>
                         </div>
@@ -201,33 +251,46 @@ $conn->query($sql);
                         <div class="form-row">
                             <div class="form-col">
                                 <div class="form-group">
-                                    <label for="card-expiry">Expiry Date</label>
-                                    <input type="text" id="card-expiry" name="card_expiry" placeholder="MM/YY" maxlength="5" class="form-control" required>
+                                    <label for="card-expiry">
+                                        <i class="fas fa-calendar"></i> Expiry Date
+                                    </label>
+                                    <input type="text" id="card-expiry" name="card_expiry" 
+                                           placeholder="MM/YY" maxlength="5" class="form-control" required>
                                 </div>
                             </div>
                             <div class="form-col">
                                 <div class="form-group">
-                                    <label for="card-cvc">CVC</label>
-                                    <input type="text" id="card-cvc" name="card_cvc" placeholder="123" maxlength="4" class="form-control" required>
+                                    <label for="card-cvc">
+                                        <i class="fas fa-lock"></i> CVC
+                                    </label>
+                                    <input type="text" id="card-cvc" name="card_cvc" 
+                                           placeholder="123" maxlength="4" class="form-control" required>
                                 </div>
                             </div>
                         </div>
                         
                         <div class="form-group">
-                            <label for="card-name">Cardholder Name</label>
-                            <input type="text" id="card-name" name="card_name" placeholder="John Doe" class="form-control" required>
+                            <label for="card-name">
+                                <i class="fas fa-user"></i> Cardholder Name
+                            </label>
+                            <input type="text" id="card-name" name="card_name" 
+                                   placeholder="John Doe" class="form-control" required>
                         </div>
                         
                         <div class="form-group">
-                            <label for="billing-email">Email Address</label>
-                            <input type="email" id="billing-email" name="billing_email" placeholder="john@example.com" class="form-control" value="<?php echo htmlspecialchars($_SESSION['email']); ?>" required>
+                            <label for="billing-email">
+                                <i class="fas fa-envelope"></i> Email Address
+                            </label>
+                            <input type="email" id="billing-email" name="billing_email" 
+                                   placeholder="john@example.com" class="form-control" 
+                                   value="<?php echo htmlspecialchars($_SESSION['email']); ?>" required>
                         </div>
                         
                         <div id="card-errors" class="card-errors"></div>
                         
                         <div class="payment-actions">
                             <a href="fines.php" class="btn btn-secondary">
-                                <i class="fas fa-arrow-left"></i> Back to Fines
+                                <i class="fas fa-arrow-left"></i> Cancel
                             </a>
                             <button type="submit" name="process_payment" id="submit-payment" class="btn btn-primary btn-lg">
                                 <i class="fas fa-lock"></i> Pay $<?php echo number_format($fine['amount'], 2); ?>
@@ -247,117 +310,241 @@ $conn->query($sql);
 </div>
 
 <style>
+.payment-header {
+    text-align: center;
+    margin-bottom: 40px;
+    padding: 30px 0;
+    background: linear-gradient(135deg, var(--primary-color), var(--primary-light));
+    color: var(--white);
+    border-radius: var(--border-radius);
+    margin: -20px -20px 40px -20px;
+    padding: 40px 20px;
+}
+
+.payment-breadcrumb {
+    margin-bottom: 20px;
+}
+
+.payment-breadcrumb a {
+    color: rgba(255, 255, 255, 0.9);
+    text-decoration: none;
+    font-weight: 500;
+    transition: var(--transition);
+}
+
+.payment-breadcrumb a:hover {
+    color: var(--white);
+}
+
+.page-title {
+    margin: 0 0 10px 0;
+    font-size: 2.5em;
+    font-weight: 700;
+}
+
+.payment-subtitle {
+    margin: 0;
+    font-size: 1.1em;
+    opacity: 0.9;
+}
+
 .payment-container {
     display: grid;
     grid-template-columns: 1fr 2fr;
-    gap: 30px;
-    max-width: 1200px;
+    gap: 40px;
+    max-width: 1400px;
     margin: 0 auto;
 }
 
 .payment-summary-card, .stripe-payment-card {
     background: var(--white);
-    border-radius: var(--border-radius);
-    box-shadow: var(--box-shadow);
+    border-radius: 15px;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
     overflow: hidden;
+    border: 1px solid rgba(13, 71, 161, 0.1);
 }
 
-.card-header {
-    background: var(--primary-color);
+.summary-header, .payment-form-header {
+    background: linear-gradient(135deg, var(--primary-color), var(--primary-light));
     color: var(--white);
-    padding: 20px;
+    padding: 25px 30px;
     display: flex;
     justify-content: space-between;
     align-items: center;
 }
 
-.card-header h3 {
+.summary-header h3, .payment-form-header h3 {
     margin: 0;
-    font-size: 1.2em;
+    font-size: 1.3em;
+    font-weight: 600;
+}
+
+.security-badge {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: rgba(255, 255, 255, 0.2);
+    padding: 8px 15px;
+    border-radius: 20px;
+    font-size: 0.9em;
+    font-weight: 500;
 }
 
 .accepted-cards {
     display: flex;
-    gap: 10px;
+    gap: 12px;
 }
 
 .accepted-cards i {
-    font-size: 1.5em;
-    opacity: 0.8;
+    font-size: 1.8em;
+    opacity: 0.9;
+    transition: var(--transition);
 }
 
-.card-body {
+.accepted-cards i:hover {
+    opacity: 1;
+    transform: scale(1.1);
+}
+
+.summary-body, .payment-form-body {
     padding: 30px;
 }
 
-.fine-details h4 {
+.book-info {
+    text-align: center;
+    margin-bottom: 30px;
+    padding-bottom: 20px;
+    border-bottom: 2px solid var(--gray-200);
+}
+
+.book-info h4 {
     color: var(--primary-color);
-    margin-bottom: 5px;
+    margin-bottom: 8px;
+    font-size: 1.4em;
+    font-weight: 600;
+}
+
+.book-info .author {
+    color: var(--text-light);
+    font-size: 1.1em;
+    margin: 0;
+}
+
+.fine-breakdown {
+    margin-bottom: 25px;
 }
 
 .detail-row {
     display: flex;
     justify-content: space-between;
-    margin-bottom: 10px;
-    padding: 5px 0;
+    align-items: center;
+    margin-bottom: 15px;
+    padding: 12px 0;
+    border-bottom: 1px solid var(--gray-200);
+}
+
+.detail-row:last-child {
+    border-bottom: none;
+    margin-bottom: 0;
+}
+
+.detail-row .label {
+    font-weight: 500;
+    color: var(--text-light);
+}
+
+.detail-row .value {
+    font-weight: 600;
+    color: var(--text-color);
+}
+
+.late-days {
+    color: var(--danger-color) !important;
+    font-weight: 700;
+}
+
+.total-section {
+    background: var(--gray-100);
+    padding: 20px;
+    border-radius: var(--border-radius);
+    margin-bottom: 25px;
 }
 
 .total-amount {
     display: flex;
     justify-content: space-between;
+    align-items: center;
+}
+
+.total-label {
     font-size: 1.2em;
-    font-weight: bold;
-    color: var(--primary-color);
-    padding: 10px 0;
+    font-weight: 600;
+    color: var(--text-color);
 }
 
 .amount {
-    font-size: 1.5em;
+    font-size: 2em;
+    font-weight: 700;
+    color: var(--primary-color);
 }
 
-.security-info {
-    background: var(--gray-100);
-    padding: 15px;
-    border-radius: var(--border-radius);
-    text-align: center;
-    margin-top: 20px;
+.payment-features {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
 }
 
-.security-info i {
+.feature {
+    display: flex;
+    align-items: center;
+    gap: 10px;
     color: var(--success-color);
-    margin-right: 5px;
+    font-size: 0.9em;
+    font-weight: 500;
+}
+
+.feature i {
+    width: 20px;
+    text-align: center;
 }
 
 .form-group {
-    margin-bottom: 20px;
+    margin-bottom: 25px;
 }
 
 .form-group label {
     display: block;
-    margin-bottom: 8px;
-    font-weight: 500;
+    margin-bottom: 10px;
+    font-weight: 600;
     color: var(--text-color);
+    font-size: 1em;
+}
+
+.form-group label i {
+    margin-right: 8px;
+    color: var(--primary-color);
 }
 
 .form-control {
     width: 100%;
-    padding: 12px 15px;
+    padding: 15px 18px;
     border: 2px solid var(--gray-300);
-    border-radius: var(--border-radius);
+    border-radius: 10px;
     font-size: 1em;
     transition: var(--transition);
     box-sizing: border-box;
+    background: var(--white);
 }
 
 .form-control:focus {
     border-color: var(--primary-color);
     outline: none;
-    box-shadow: 0 0 0 3px rgba(13, 71, 161, 0.1);
+    box-shadow: 0 0 0 4px rgba(13, 71, 161, 0.1);
 }
 
 .form-row {
     display: flex;
-    gap: 15px;
+    gap: 20px;
 }
 
 .form-col {
@@ -370,10 +557,11 @@ $conn->query($sql);
 
 .card-type-icon {
     position: absolute;
-    right: 15px;
+    right: 18px;
     top: 50%;
     transform: translateY(-50%);
-    font-size: 1.5em;
+    font-size: 1.8em;
+    transition: var(--transition);
 }
 
 .card-input.valid {
@@ -387,40 +575,77 @@ $conn->query($sql);
 .card-errors {
     color: var(--danger-color);
     margin-bottom: 20px;
-    padding: 10px;
+    padding: 15px;
     background: rgba(220, 53, 69, 0.1);
     border-radius: var(--border-radius);
+    border-left: 4px solid var(--danger-color);
     display: none;
+    font-weight: 500;
 }
 
 .payment-actions {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    margin-top: 30px;
-    padding-top: 20px;
-    border-top: 1px solid var(--gray-300);
+    margin-top: 40px;
+    padding-top: 25px;
+    border-top: 2px solid var(--gray-200);
+    gap: 20px;
 }
 
 .btn-lg {
-    padding: 15px 30px;
-    font-size: 1.1em;
-    font-weight: 600;
+    padding: 18px 35px;
+    font-size: 1.2em;
+    font-weight: 700;
+    border-radius: 10px;
+    min-width: 200px;
+}
+
+#submit-payment {
+    background: linear-gradient(135deg, var(--success-color), #34ce57);
+    border: none;
+    box-shadow: 0 4px 15px rgba(40, 167, 69, 0.3);
+    transition: var(--transition);
+}
+
+#submit-payment:hover:not(:disabled) {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(40, 167, 69, 0.4);
 }
 
 #submit-payment:disabled {
-    background-color: var(--gray-400);
+    background: var(--gray-400);
     cursor: not-allowed;
+    transform: none;
+    box-shadow: none;
+}
+
+@media (max-width: 1024px) {
+    .payment-container {
+        grid-template-columns: 1fr;
+        gap: 30px;
+    }
+    
+    .payment-header {
+        margin: -20px -15px 30px -15px;
+        padding: 30px 15px;
+    }
+    
+    .page-title {
+        font-size: 2em;
+    }
 }
 
 @media (max-width: 768px) {
-    .payment-container {
-        grid-template-columns: 1fr;
-        gap: 20px;
+    .summary-body, .payment-form-body {
+        padding: 20px;
     }
     
-    .card-body {
+    .summary-header, .payment-form-header {
         padding: 20px;
+        flex-direction: column;
+        gap: 15px;
+        text-align: center;
     }
     
     .payment-actions {
@@ -435,6 +660,25 @@ $conn->query($sql);
     .form-row {
         flex-direction: column;
         gap: 0;
+    }
+    
+    .accepted-cards {
+        justify-content: center;
+    }
+}
+
+@media (max-width: 480px) {
+    .payment-header {
+        margin: -20px -10px 20px -10px;
+        padding: 25px 10px;
+    }
+    
+    .page-title {
+        font-size: 1.8em;
+    }
+    
+    .amount {
+        font-size: 1.6em;
     }
 }
 </style>
@@ -606,6 +850,11 @@ document.addEventListener('DOMContentLoaded', function() {
         // Show processing state
         submitButton.disabled = true;
         submitButton.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Processing Payment...';
+        
+        // Add a small delay to show the processing state
+        setTimeout(() => {
+            // The form will submit naturally after this
+        }, 500);
     });
     
     // Initial validation

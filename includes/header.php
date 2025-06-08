@@ -52,9 +52,9 @@ $currentPage = basename($_SERVER['PHP_SELF']);
             </div>
             
             <div class="sidebar-menu">
-                <?php if (isset($_SESSION['role']) && $_SESSION['role'] === 'student'): ?>
-                    <?php elseif (isset($_SESSION['role']) && $_SESSION['role'] === 'faculty'): ?>
-                    <!-- Student Sidebar -->
+                <?php
+                
+                if (isset($_SESSION['role']) && ($_SESSION['role'] === 'student' || $_SESSION['role'] === 'faculty')): ?>
                     <a href="dashboard.php" class="sidebar-menu-item <?php echo $currentPage == 'dashboard.php' ? 'active' : ''; ?>">
                         <i class="fas fa-tachometer-alt"></i>
                         <span class="sidebar-menu-label">Dashboard</span>
