@@ -1,19 +1,19 @@
 /* Main Styles for Library Management System */
 
 :root {
-  --primary-color: #0A74DA;      /* Strong Blue - Professional & Trustworthy */
-  --primary-light: #4A90E2;      /* Light Blue */
-  --primary-dark: #074B9C;       /* Dark Blue */
+  --primary-color: #0A74DA;      
+  --primary-light: #4A90E2;      
+  --primary-dark: #074B9C;       
 
-  --secondary-color: #F7F9FC;    /* Very Light Gray Background */
-  --accent-color: #FF6F61;       /* Warm Coral Accent */
+  --secondary-color: #F7F9FC;    
+  --accent-color: #FF6F61;       
 
-  --success-color: #28A745;      /* Green */
-  --warning-color: #FF9800;      /* Amber */
-  --danger-color: #DC3545;       /* Red */
+  --success-color: #28A745;     
+  --warning-color: #FF9800;      
+  --danger-color: #DC3545;       
 
-  --text-color: #212529;         /* Almost Black for Text */
-  --text-light: #6C757D;         /* Grayish Text */
+  --text-color: #212529;         
+  --text-light: #6C757D;         
 
   --white: #FFFFFF;
 

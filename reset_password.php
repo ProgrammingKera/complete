@@ -87,6 +87,18 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && $validToken) {
         }
     }
 }
+
+// Create password_resets table if it doesn't exist
+$sql = "CREATE TABLE IF NOT EXISTS password_resets (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    user_id INT NOT NULL,
+    token VARCHAR(64) NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    expires_at DATETIME NOT NULL,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+    UNIQUE KEY unique_token (token)
+)";
+$conn->query($sql);
 ?>
 
 <!DOCTYPE html>
@@ -199,6 +211,11 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && $validToken) {
             padding: 15px;
             margin-top: 10px;
             font-size: 0.9em;
+            display: none;
+        }
+
+        .password-requirements.show {
+            display: block;
         }
 
         .password-requirements h4 {
@@ -358,7 +375,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && $validToken) {
                     <div class="form-group">
                         <label for="password"><i class="fas fa-lock"></i> New Password</label>
                         <input type="password" id="password" name="password" placeholder="Enter your new password" required>
-                        <div class="password-requirements">
+                        <div class="password-requirements" id="passwordRequirements">
                             <h4>Password Requirements:</h4>
                             <div class="requirement" id="length-req">
                                 <i class="fas fa-times"></i>
@@ -408,58 +425,80 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && $validToken) {
             const lengthReq = document.getElementById('length-req');
             const uppercaseReq = document.getElementById('uppercase-req');
             const specialReq = document.getElementById('special-req');
-
-            function validatePassword() {
-                const password = passwordInput.value;
-                let isValid = true;
-
-                // Check length
-                if (password.length >= 8) {
-                    lengthReq.classList.add('valid');
-                    lengthReq.classList.remove('invalid');
-                    lengthReq.querySelector('i').className = 'fas fa-check';
-                } else {
-                    lengthReq.classList.add('invalid');
-                    lengthReq.classList.remove('valid');
-                    lengthReq.querySelector('i').className = 'fas fa-times';
-                    isValid = false;
-                }
-
-                // Check uppercase
-                if (/[A-Z]/.test(password)) {
-                    uppercaseReq.classList.add('valid');
-                    uppercaseReq.classList.remove('invalid');
-                    uppercaseReq.querySelector('i').className = 'fas fa-check';
-                } else {
-                    uppercaseReq.classList.add('invalid');
-                    uppercaseReq.classList.remove('valid');
-                    uppercaseReq.querySelector('i').className = 'fas fa-times';
-                    isValid = false;
-                }
-
-                // Check special characters
-                if (/[@#$]/.test(password)) {
-                    specialReq.classList.add('valid');
-                    specialReq.classList.remove('invalid');
-                    specialReq.querySelector('i').className = 'fas fa-check';
-                } else {
-                    specialReq.classList.add('invalid');
-                    specialReq.classList.remove('valid');
-                    specialReq.querySelector('i').className = 'fas fa-times';
-                    isValid = false;
-                }
-
-                // Check if passwords match
-                const passwordsMatch = password === confirmPasswordInput.value && password.length > 0;
-
-                // Enable/disable submit button
-                submitBtn.disabled = !(isValid && passwordsMatch);
-
-                return isValid;
-            }
+            const passwordRequirements = document.getElementById('passwordRequirements');
 
             if (passwordInput && confirmPasswordInput) {
-                passwordInput.addEventListener('input', validatePassword);
+                // Show password requirements when password field is focused
+                passwordInput.addEventListener('focus', function() {
+                    passwordRequirements.classList.add('show');
+                });
+
+                // Hide password requirements when password field loses focus (with delay)
+                passwordInput.addEventListener('blur', function() {
+                    setTimeout(() => {
+                        if (document.activeElement !== confirmPasswordInput) {
+                            passwordRequirements.classList.remove('show');
+                        }
+                    }, 200);
+                });
+
+                function validatePassword() {
+                    const password = passwordInput.value;
+                    let isValid = true;
+
+                    // Check length
+                    if (password.length >= 8) {
+                        lengthReq.classList.add('valid');
+                        lengthReq.classList.remove('invalid');
+                        lengthReq.querySelector('i').className = 'fas fa-check';
+                    } else {
+                        lengthReq.classList.add('invalid');
+                        lengthReq.classList.remove('valid');
+                        lengthReq.querySelector('i').className = 'fas fa-times';
+                        isValid = false;
+                    }
+
+                    // Check uppercase
+                    if (/[A-Z]/.test(password)) {
+                        uppercaseReq.classList.add('valid');
+                        uppercaseReq.classList.remove('invalid');
+                        uppercaseReq.querySelector('i').className = 'fas fa-check';
+                    } else {
+                        uppercaseReq.classList.add('invalid');
+                        uppercaseReq.classList.remove('valid');
+                        uppercaseReq.querySelector('i').className = 'fas fa-times';
+                        isValid = false;
+                    }
+
+                    // Check special characters
+                    if (/[@#$]/.test(password)) {
+                        specialReq.classList.add('valid');
+                        specialReq.classList.remove('invalid');
+                        specialReq.querySelector('i').className = 'fas fa-check';
+                    } else {
+                        specialReq.classList.add('invalid');
+                        specialReq.classList.remove('valid');
+                        specialReq.querySelector('i').className = 'fas fa-times';
+                        isValid = false;
+                    }
+
+                    // Check if passwords match
+                    const passwordsMatch = password === confirmPasswordInput.value && password.length > 0;
+
+                    // Enable/disable submit button
+                    submitBtn.disabled = !(isValid && passwordsMatch);
+
+                    return isValid;
+                }
+
+                passwordInput.addEventListener('input', function() {
+                    validatePassword();
+                    // Show requirements when typing
+                    if (this.value.length > 0) {
+                        passwordRequirements.classList.add('show');
+                    }
+                });
+
                 confirmPasswordInput.addEventListener('input', validatePassword);
 
                 // Form submission validation

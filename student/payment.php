@@ -35,19 +35,49 @@ if (isset($_GET['fine_id'])) {
     }
 }
 
-// Process Stripe payment
-if (isset($_POST['process_stripe_payment']) && $fine) {
-    $stripeToken = $_POST['stripeToken'];
-    $stripeEmail = $_POST['stripeEmail'];
+// Process payment
+if (isset($_POST['process_payment']) && $fine) {
+    $cardNumber = preg_replace('/\s+/', '', $_POST['card_number']);
+    $cardExpiry = $_POST['card_expiry'];
+    $cardCvc = $_POST['card_cvc'];
+    $cardName = trim($_POST['card_name']);
+    $billingEmail = trim($_POST['billing_email']);
     
-    if (empty($stripeToken)) {
-        $message = "Payment failed. Please try again.";
+    // Basic validation
+    $errors = [];
+    
+    if (empty($cardNumber) || strlen($cardNumber) < 13 || strlen($cardNumber) > 19) {
+        $errors[] = "Please enter a valid card number.";
+    }
+    
+    if (empty($cardExpiry) || !preg_match('/^\d{2}\/\d{2}$/', $cardExpiry)) {
+        $errors[] = "Please enter a valid expiry date (MM/YY).";
+    } else {
+        list($month, $year) = explode('/', $cardExpiry);
+        $currentYear = date('y');
+        $currentMonth = date('m');
+        if ($month < 1 || $month > 12 || $year < $currentYear || ($year == $currentYear && $month < $currentMonth)) {
+            $errors[] = "Card has expired or invalid expiry date.";
+        }
+    }
+    
+    if (empty($cardCvc) || strlen($cardCvc) < 3 || strlen($cardCvc) > 4) {
+        $errors[] = "Please enter a valid CVC.";
+    }
+    
+    if (empty($cardName)) {
+        $errors[] = "Please enter the cardholder name.";
+    }
+    
+    if (empty($billingEmail) || !filter_var($billingEmail, FILTER_VALIDATE_EMAIL)) {
+        $errors[] = "Please enter a valid email address.";
+    }
+    
+    if (!empty($errors)) {
+        $message = implode('<br>', $errors);
         $messageType = "danger";
     } else {
-        // Simulate Stripe payment processing
-        // In a real implementation, you would use Stripe's PHP SDK here
-        
-        // Generate transaction ID
+        // Simulate payment processing
         $transactionId = 'stripe_' . date('YmdHis') . rand(1000, 9999);
         
         // Update fine status
@@ -58,10 +88,10 @@ if (isset($_POST['process_stripe_payment']) && $fine) {
             // Record payment
             $receiptNumber = 'RCP' . date('Ymd') . str_pad($fine['id'], 4, '0', STR_PAD_LEFT);
             $paymentDetails = json_encode([
-                'stripe_token' => substr($stripeToken, 0, 20) . '...',
-                'stripe_email' => $stripeEmail,
-                'transaction_id' => $transactionId,
-                'card_last_four' => '****' // In real implementation, get from Stripe response
+                'card_last_four' => substr($cardNumber, -4),
+                'card_type' => 'Credit Card',
+                'billing_email' => $billingEmail,
+                'transaction_id' => $transactionId
             ]);
             
             $stmt = $conn->prepare("
@@ -72,11 +102,11 @@ if (isset($_POST['process_stripe_payment']) && $fine) {
             $stmt->execute();
             
             // Send notification
-            $notificationMessage = "Fine payment of $" . number_format($fine['amount'], 2) . " processed successfully via Stripe. Transaction ID: " . $transactionId;
+            $notificationMessage = "Fine payment of $" . number_format($fine['amount'], 2) . " processed successfully. Transaction ID: " . $transactionId;
             sendNotification($conn, $userId, $notificationMessage);
             
             // Redirect to success page
-            echo "<script>window.location.href='payment_success.php?receipt=$receiptNumber&transaction=$transactionId';</script>";
+            header("Location: payment_success.php?receipt=$receiptNumber&transaction=$transactionId");
             exit();
         } else {
             $message = "Payment processing failed. Please try again.";
@@ -141,15 +171,15 @@ $conn->query($sql);
                     
                     <div class="security-info">
                         <i class="fas fa-shield-alt"></i>
-                        <small>Secured by Stripe - Industry leading payment security</small>
+                        <small>Secured payment processing</small>
                     </div>
                 </div>
             </div>
 
-            <!-- Stripe Payment Form -->
+            <!-- Payment Form -->
             <div class="stripe-payment-card">
                 <div class="card-header">
-                    <h3><i class="fab fa-stripe"></i> Pay with Credit Card</h3>
+                    <h3><i class="fas fa-credit-card"></i> Pay with Credit Card</h3>
                     <div class="accepted-cards">
                         <i class="fab fa-cc-visa"></i>
                         <i class="fab fa-cc-mastercard"></i>
@@ -158,12 +188,12 @@ $conn->query($sql);
                     </div>
                 </div>
                 <div class="card-body">
-                    <form action="" method="POST" id="stripe-payment-form">
+                    <form action="" method="POST" id="payment-form">
                         <!-- Card Number -->
                         <div class="form-group">
                             <label for="card-number">Card Number</label>
                             <div class="card-input-container">
-                                <input type="text" id="card-number" placeholder="1234 5678 9012 3456" maxlength="19" class="form-control card-input" required>
+                                <input type="text" id="card-number" name="card_number" placeholder="1234 5678 9012 3456" maxlength="19" class="form-control card-input" required>
                                 <div class="card-type-icon" id="card-type-icon"></div>
                             </div>
                         </div>
@@ -172,25 +202,25 @@ $conn->query($sql);
                             <div class="form-col">
                                 <div class="form-group">
                                     <label for="card-expiry">Expiry Date</label>
-                                    <input type="text" id="card-expiry" placeholder="MM/YY" maxlength="5" class="form-control" required>
+                                    <input type="text" id="card-expiry" name="card_expiry" placeholder="MM/YY" maxlength="5" class="form-control" required>
                                 </div>
                             </div>
                             <div class="form-col">
                                 <div class="form-group">
                                     <label for="card-cvc">CVC</label>
-                                    <input type="text" id="card-cvc" placeholder="123" maxlength="4" class="form-control" required>
+                                    <input type="text" id="card-cvc" name="card_cvc" placeholder="123" maxlength="4" class="form-control" required>
                                 </div>
                             </div>
                         </div>
                         
                         <div class="form-group">
                             <label for="card-name">Cardholder Name</label>
-                            <input type="text" id="card-name" placeholder="John Doe" class="form-control" required>
+                            <input type="text" id="card-name" name="card_name" placeholder="John Doe" class="form-control" required>
                         </div>
                         
                         <div class="form-group">
                             <label for="billing-email">Email Address</label>
-                            <input type="email" id="billing-email" placeholder="john@example.com" class="form-control" value="<?php echo htmlspecialchars($_SESSION['email']); ?>" required>
+                            <input type="email" id="billing-email" name="billing_email" placeholder="john@example.com" class="form-control" value="<?php echo htmlspecialchars($_SESSION['email']); ?>" required>
                         </div>
                         
                         <div id="card-errors" class="card-errors"></div>
@@ -199,15 +229,10 @@ $conn->query($sql);
                             <a href="fines.php" class="btn btn-secondary">
                                 <i class="fas fa-arrow-left"></i> Back to Fines
                             </a>
-                            <button type="submit" id="submit-payment" class="btn btn-primary btn-lg">
+                            <button type="submit" name="process_payment" id="submit-payment" class="btn btn-primary btn-lg">
                                 <i class="fas fa-lock"></i> Pay $<?php echo number_format($fine['amount'], 2); ?>
                             </button>
                         </div>
-                        
-                        <!-- Hidden fields for processing -->
-                        <input type="hidden" name="process_stripe_payment" value="1">
-                        <input type="hidden" name="stripeToken" id="stripeToken">
-                        <input type="hidden" name="stripeEmail" id="stripeEmail">
                     </form>
                 </div>
             </div>
@@ -424,7 +449,7 @@ document.addEventListener('DOMContentLoaded', function() {
     const cardTypeIcon = document.getElementById('card-type-icon');
     const cardErrors = document.getElementById('card-errors');
     const submitButton = document.getElementById('submit-payment');
-    const form = document.getElementById('stripe-payment-form');
+    const form = document.getElementById('payment-form');
     
     // Card number formatting and validation
     cardNumberInput.addEventListener('input', function(e) {
@@ -437,7 +462,7 @@ document.addEventListener('DOMContentLoaded', function() {
         
         // Detect card type
         detectCardType(value);
-        validateCardNumber(value);
+        validateForm();
     });
     
     // Expiry date formatting
@@ -447,25 +472,21 @@ document.addEventListener('DOMContentLoaded', function() {
             value = value.substring(0, 2) + '/' + value.substring(2, 4);
         }
         e.target.value = value;
-        validateExpiry(value);
+        validateForm();
     });
     
     // CVC validation
     cardCvcInput.addEventListener('input', function(e) {
         let value = e.target.value.replace(/\D/g, '');
         e.target.value = value;
-        validateCVC(value);
+        validateForm();
     });
     
     // Name validation
-    cardNameInput.addEventListener('input', function(e) {
-        validateName(e.target.value);
-    });
+    cardNameInput.addEventListener('input', validateForm);
     
     // Email validation
-    billingEmailInput.addEventListener('input', function(e) {
-        validateEmail(e.target.value);
-    });
+    billingEmailInput.addEventListener('input', validateForm);
     
     function detectCardType(number) {
         const cardTypes = {
@@ -491,64 +512,53 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }
     
-    function validateCardNumber(number) {
-        const isValid = number.length >= 13 && number.length <= 19 && luhnCheck(number);
-        updateFieldValidation(cardNumberInput, isValid);
-        return isValid;
-    }
-    
-    function validateExpiry(expiry) {
-        const [month, year] = expiry.split('/');
-        const currentDate = new Date();
-        const currentYear = currentDate.getFullYear() % 100;
-        const currentMonth = currentDate.getMonth() + 1;
-        
-        const isValid = month && year && 
-                       parseInt(month) >= 1 && parseInt(month) <= 12 &&
-                       (parseInt(year) > currentYear || 
-                        (parseInt(year) === currentYear && parseInt(month) >= currentMonth));
-        
-        updateFieldValidation(cardExpiryInput, isValid);
-        return isValid;
-    }
-    
-    function validateCVC(cvc) {
-        const isValid = cvc.length >= 3 && cvc.length <= 4;
-        updateFieldValidation(cardCvcInput, isValid);
-        return isValid;
-    }
-    
-    function validateName(name) {
-        const isValid = name.trim().length >= 2;
-        updateFieldValidation(cardNameInput, isValid);
-        return isValid;
-    }
-    
-    function validateEmail(email) {
-        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-        const isValid = emailRegex.test(email);
-        updateFieldValidation(billingEmailInput, isValid);
-        return isValid;
-    }
-    
-    function updateFieldValidation(field, isValid) {
-        field.classList.remove('valid', 'invalid');
-        if (field.value.length > 0) {
-            field.classList.add(isValid ? 'valid' : 'invalid');
-        }
-        updateSubmitButton();
-    }
-    
-    function updateSubmitButton() {
+    function validateForm() {
         const cardNumber = cardNumberInput.value.replace(/\s/g, '');
-        const isFormValid = 
-            validateCardNumber(cardNumber) &&
-            validateExpiry(cardExpiryInput.value) &&
-            validateCVC(cardCvcInput.value) &&
-            validateName(cardNameInput.value) &&
-            validateEmail(billingEmailInput.value);
+        const cardExpiry = cardExpiryInput.value;
+        const cardCvc = cardCvcInput.value;
+        const cardName = cardNameInput.value.trim();
+        const billingEmail = billingEmailInput.value.trim();
         
-        submitButton.disabled = !isFormValid;
+        let isValid = true;
+        
+        // Validate card number
+        if (cardNumber.length < 13 || cardNumber.length > 19 || !luhnCheck(cardNumber)) {
+            isValid = false;
+        }
+        
+        // Validate expiry
+        if (!cardExpiry.match(/^\d{2}\/\d{2}$/)) {
+            isValid = false;
+        } else {
+            const [month, year] = cardExpiry.split('/');
+            const currentDate = new Date();
+            const currentYear = currentDate.getFullYear() % 100;
+            const currentMonth = currentDate.getMonth() + 1;
+            
+            if (parseInt(month) < 1 || parseInt(month) > 12 ||
+                parseInt(year) < currentYear || 
+                (parseInt(year) === currentYear && parseInt(month) < currentMonth)) {
+                isValid = false;
+            }
+        }
+        
+        // Validate CVC
+        if (cardCvc.length < 3 || cardCvc.length > 4) {
+            isValid = false;
+        }
+        
+        // Validate name
+        if (cardName.length < 2) {
+            isValid = false;
+        }
+        
+        // Validate email
+        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        if (!emailRegex.test(billingEmail)) {
+            isValid = false;
+        }
+        
+        submitButton.disabled = !isValid;
     }
     
     function luhnCheck(number) {
@@ -583,56 +593,23 @@ document.addEventListener('DOMContentLoaded', function() {
     
     // Form submission
     form.addEventListener('submit', function(e) {
-        e.preventDefault();
-        
         const cardNumber = cardNumberInput.value.replace(/\s/g, '');
         
-        if (!validateCardNumber(cardNumber)) {
+        if (!luhnCheck(cardNumber)) {
+            e.preventDefault();
             showError('Please enter a valid card number.');
-            return;
-        }
-        
-        if (!validateExpiry(cardExpiryInput.value)) {
-            showError('Please enter a valid expiry date.');
-            return;
-        }
-        
-        if (!validateCVC(cardCvcInput.value)) {
-            showError('Please enter a valid CVC.');
-            return;
-        }
-        
-        if (!validateName(cardNameInput.value)) {
-            showError('Please enter the cardholder name.');
-            return;
-        }
-        
-        if (!validateEmail(billingEmailInput.value)) {
-            showError('Please enter a valid email address.');
             return;
         }
         
         hideError();
         
-        // Simulate payment processing
+        // Show processing state
         submitButton.disabled = true;
         submitButton.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Processing Payment...';
-        
-        // Generate a mock Stripe token
-        const mockToken = 'tok_' + Math.random().toString(36).substr(2, 24);
-        
-        // Set hidden fields
-        document.getElementById('stripeToken').value = mockToken;
-        document.getElementById('stripeEmail').value = billingEmailInput.value;
-        
-        // Submit the form after a short delay to simulate processing
-        setTimeout(() => {
-            form.submit();
-        }, 2000);
     });
     
     // Initial validation
-    updateSubmitButton();
+    validateForm();
 });
 </script>
 

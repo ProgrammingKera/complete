@@ -32,12 +32,12 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
     $email = trim($_POST['email']);
     $password = $_POST['password'];
     $confirmPassword = $_POST['confirm_password'];
-    $role = 'student'; // Default role for new registrations
+    $role = $_POST['role']; // Get role from form
     $department = trim($_POST['department']);
     $phone = trim($_POST['phone']);
     
     // Basic validation
-    if (empty($name) || empty($email) || empty($password)) {
+    if (empty($name) || empty($email) || empty($password) || empty($role)) {
         $message = "All required fields must be filled out";
         $messageType = "danger";
     } elseif ($password !== $confirmPassword) {
@@ -175,7 +175,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             font-weight: 500;
         }
 
-        .form-group input {
+        .form-group input, .form-group select {
             width: 100%;
             padding: 12px 15px;
             border: 2px solid #e1e1e1;
@@ -185,7 +185,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             box-sizing: border-box;
         }
 
-        .form-group input:focus {
+        .form-group input:focus, .form-group select:focus {
             border-color: #0d47a1;
             box-shadow: 0 0 0 3px rgba(13, 71, 161, 0.1);
             outline: none;
@@ -198,6 +198,11 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             padding: 15px;
             margin-top: 10px;
             font-size: 0.9em;
+            display: none;
+        }
+
+        .password-requirements.show {
+            display: block;
         }
 
         .password-requirements h4 {
@@ -239,9 +244,15 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             transition: all 0.3s ease;
         }
 
-        .btn-primary:hover {
+        .btn-primary:hover:not(:disabled) {
             background: #1565c0;
             transform: translateY(-2px);
+        }
+
+        .btn-primary:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+            transform: none;
         }
 
         .login-link {
@@ -334,13 +345,22 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                         </div>
                     </div>
                 </div>
+
+                <div class="form-group">
+                    <label for="role"><i class="fas fa-user-tag"></i> Role *</label>
+                    <select id="role" name="role" required>
+                        <option value="">Select Role</option>
+                        <option value="student">Student</option>
+                        <option value="faculty">Faculty</option>
+                    </select>
+                </div>
                 
                 <div class="form-row">
                     <div class="form-col">
                         <div class="form-group">
                             <label for="password"><i class="fas fa-lock"></i> Password *</label>
                             <input type="password" id="password" name="password" required>
-                            <div class="password-requirements">
+                            <div class="password-requirements" id="passwordRequirements">
                                 <h4>Password Requirements:</h4>
                                 <div class="requirement" id="length-req">
                                     <i class="fas fa-times"></i>
@@ -399,6 +419,21 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             const lengthReq = document.getElementById('length-req');
             const uppercaseReq = document.getElementById('uppercase-req');
             const specialReq = document.getElementById('special-req');
+            const passwordRequirements = document.getElementById('passwordRequirements');
+
+            // Show password requirements when password field is focused
+            passwordInput.addEventListener('focus', function() {
+                passwordRequirements.classList.add('show');
+            });
+
+            // Hide password requirements when password field loses focus (with delay)
+            passwordInput.addEventListener('blur', function() {
+                setTimeout(() => {
+                    if (document.activeElement !== confirmPasswordInput) {
+                        passwordRequirements.classList.remove('show');
+                    }
+                }, 200);
+            });
 
             function validatePassword() {
                 const password = passwordInput.value;
@@ -449,7 +484,14 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                 return isValid;
             }
 
-            passwordInput.addEventListener('input', validatePassword);
+            passwordInput.addEventListener('input', function() {
+                validatePassword();
+                // Show requirements when typing
+                if (this.value.length > 0) {
+                    passwordRequirements.classList.add('show');
+                }
+            });
+
             confirmPasswordInput.addEventListener('input', validatePassword);
 
             // Form submission validation

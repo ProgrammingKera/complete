@@ -64,14 +64,24 @@ $stmt->bind_param("isss", $user['id'], $token, $createdAt, $expiresAt);
                 $mail->isHTML(true);
                 $mail->Subject = 'Password Reset Request';
                 $mail->Body = "
-                    <h2>Password Reset Request</h2>
-                    <p>Dear {$user['name']},</p>
-                    <p>We received a request to reset your password. Click the link below to reset your password:</p>
-                    <p><a href='{$resetLink}'>{$resetLink}</a></p>
-                    <p>This link will expire in 1 hour.</p>
-                    <p>If you didn't request this, please ignore this email.</p>
-                    <p>Best regards,<br>Library Management System</p>
-                ";
+    <div style='background-color: #F7F9FC; padding: 30px; font-family: Arial, sans-serif; color: #333;'>
+        <div style='max-width: 600px; margin: auto; background-color: #ffffff; padding: 20px; border-radius: 10px; box-shadow: 0 2px 8px rgba(0,0,0,0.1);'>
+            <h2 style='color: #0A74DA;'>Password Reset Request</h2>
+            <p>Dear {$user['name']},</p>
+            <p>We received a request to reset your password. Please click the button below to proceed:</p>
+            <div style='text-align: center; margin: 30px 0;'>
+                <a href='{$resetLink}' 
+                   style='background-color: #0A74DA; color: white; text-decoration: none; padding: 12px 24px; font-size: 16px; border-radius: 5px; display: inline-block;'>
+                    Reset Password
+                </a>
+            </div>
+            <p>This link will expire in <strong>1 hour</strong>.</p>
+            <p>If you didn't request a password reset, you can safely ignore this email.</p>
+            <p style='margin-top: 30px;'>Best regards,<br><strong>Library Management System</strong></p>
+        </div>
+    </div>
+";
+
                 
                 $mail->send();
                 $message = "Password reset instructions have been sent to your email address.";
