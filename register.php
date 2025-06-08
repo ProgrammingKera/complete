@@ -5,6 +5,28 @@ include 'includes/config.php';
 $message = '';
 $messageType = '';
 
+// Password validation function
+function validatePassword($password) {
+    $errors = [];
+    
+    // Check minimum length (8 characters)
+    if (strlen($password) < 8) {
+        $errors[] = "Password must be at least 8 characters long";
+    }
+    
+    // Check for at least one uppercase letter
+    if (!preg_match('/[A-Z]/', $password)) {
+        $errors[] = "Password must contain at least one uppercase letter";
+    }
+    
+    // Check for at least one special character (@, #, $)
+    if (!preg_match('/[@#$]/', $password)) {
+        $errors[] = "Password must contain at least one special character (@, #, $)";
+    }
+    
+    return $errors;
+}
+
 if ($_SERVER['REQUEST_METHOD'] == 'POST') {
     $name = trim($_POST['name']);
     $email = trim($_POST['email']);
@@ -21,36 +43,40 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
     } elseif ($password !== $confirmPassword) {
         $message = "Passwords do not match";
         $messageType = "danger";
-    } elseif (strlen($password) < 6) {
-        $message = "Password must be at least 6 characters long";
-        $messageType = "danger";
     } else {
-        // Check if email already exists
-        $stmt = $conn->prepare("SELECT id FROM users WHERE email = ?");
-        $stmt->bind_param("s", $email);
-        $stmt->execute();
-        $result = $stmt->get_result();
-        
-        if ($result->num_rows > 0) {
-            $message = "Email already registered";
+        // Validate password strength
+        $passwordErrors = validatePassword($password);
+        if (!empty($passwordErrors)) {
+            $message = implode(". ", $passwordErrors);
             $messageType = "danger";
         } else {
-            // Hash password
-            $hashedPassword = password_hash($password, PASSWORD_DEFAULT);
+            // Check if email already exists
+            $stmt = $conn->prepare("SELECT id FROM users WHERE email = ?");
+            $stmt->bind_param("s", $email);
+            $stmt->execute();
+            $result = $stmt->get_result();
             
-            // Insert new user
-            $stmt = $conn->prepare("INSERT INTO users (name, email, password, role, department, phone) VALUES (?, ?, ?, ?, ?, ?)");
-            $stmt->bind_param("ssssss", $name, $email, $hashedPassword, $role, $department, $phone);
-            
-            if ($stmt->execute()) {
-                $message = "Registration successful! You can now login.";
-                $messageType = "success";
-                
-                // Redirect to login page after 2 seconds
-                header("refresh:2;url=index.php");
-            } else {
-                $message = "Error registering user: " . $stmt->error;
+            if ($result->num_rows > 0) {
+                $message = "Email already registered";
                 $messageType = "danger";
+            } else {
+                // Hash password
+                $hashedPassword = password_hash($password, PASSWORD_DEFAULT);
+                
+                // Insert new user
+                $stmt = $conn->prepare("INSERT INTO users (name, email, password, role, department, phone) VALUES (?, ?, ?, ?, ?, ?)");
+                $stmt->bind_param("ssssss", $name, $email, $hashedPassword, $role, $department, $phone);
+                
+                if ($stmt->execute()) {
+                    $message = "Registration successful! You can now login.";
+                    $messageType = "success";
+                    
+                    // Redirect to login page after 2 seconds
+                    header("refresh:2;url=index.php");
+                } else {
+                    $message = "Error registering user: " . $stmt->error;
+                    $messageType = "danger";
+                }
             }
         }
     }
@@ -156,11 +182,48 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             border-radius: 8px;
             font-size: 1em;
             transition: all 0.3s ease;
+            box-sizing: border-box;
         }
 
         .form-group input:focus {
             border-color: #0d47a1;
             box-shadow: 0 0 0 3px rgba(13, 71, 161, 0.1);
+            outline: none;
+        }
+
+        .password-requirements {
+            background: #f8f9fa;
+            border: 1px solid #e9ecef;
+            border-radius: 8px;
+            padding: 15px;
+            margin-top: 10px;
+            font-size: 0.9em;
+        }
+
+        .password-requirements h4 {
+            margin: 0 0 10px 0;
+            color: #495057;
+            font-size: 1em;
+        }
+
+        .requirement {
+            display: flex;
+            align-items: center;
+            margin-bottom: 5px;
+            color: #6c757d;
+        }
+
+        .requirement i {
+            margin-right: 8px;
+            width: 16px;
+        }
+
+        .requirement.valid {
+            color: #28a745;
+        }
+
+        .requirement.invalid {
+            color: #dc3545;
         }
 
         .btn-primary {
@@ -232,6 +295,13 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                 opacity: 1;
             }
         }
+
+        @media (max-width: 768px) {
+            .form-row {
+                flex-direction: column;
+                gap: 0;
+            }
+        }
     </style>
 </head>
 <body class="register-page">
@@ -249,17 +319,17 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                 </div>
             <?php endif; ?>
             
-            <form method="POST" action="">
+            <form method="POST" action="" id="registerForm">
                 <div class="form-row">
                     <div class="form-col">
                         <div class="form-group">
-                            <label for="name"><i class="fas fa-user"></i> Full Name</label>
+                            <label for="name"><i class="fas fa-user"></i> Full Name *</label>
                             <input type="text" id="name" name="name" required>
                         </div>
                     </div>
                     <div class="form-col">
                         <div class="form-group">
-                            <label for="email"><i class="fas fa-envelope"></i> Email</label>
+                            <label for="email"><i class="fas fa-envelope"></i> Email *</label>
                             <input type="email" id="email" name="email" required>
                         </div>
                     </div>
@@ -268,13 +338,28 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                 <div class="form-row">
                     <div class="form-col">
                         <div class="form-group">
-                            <label for="password"><i class="fas fa-lock"></i> Password</label>
+                            <label for="password"><i class="fas fa-lock"></i> Password *</label>
                             <input type="password" id="password" name="password" required>
+                            <div class="password-requirements">
+                                <h4>Password Requirements:</h4>
+                                <div class="requirement" id="length-req">
+                                    <i class="fas fa-times"></i>
+                                    <span>At least 8 characters long</span>
+                                </div>
+                                <div class="requirement" id="uppercase-req">
+                                    <i class="fas fa-times"></i>
+                                    <span>At least one uppercase letter (A-Z)</span>
+                                </div>
+                                <div class="requirement" id="special-req">
+                                    <i class="fas fa-times"></i>
+                                    <span>At least one special character (@, #, $)</span>
+                                </div>
+                            </div>
                         </div>
                     </div>
                     <div class="form-col">
                         <div class="form-group">
-                            <label for="confirm_password"><i class="fas fa-lock"></i> Confirm Password</label>
+                            <label for="confirm_password"><i class="fas fa-lock"></i> Confirm Password *</label>
                             <input type="password" id="confirm_password" name="confirm_password" required>
                         </div>
                     </div>
@@ -295,7 +380,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                     </div>
                 </div>
                 
-                <button type="submit" class="btn btn-primary">
+                <button type="submit" class="btn btn-primary" id="submitBtn" disabled>
                     <i class="fas fa-user-plus"></i> Register
                 </button>
                 
@@ -305,5 +390,81 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             </form>
         </div>
     </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const passwordInput = document.getElementById('password');
+            const confirmPasswordInput = document.getElementById('confirm_password');
+            const submitBtn = document.getElementById('submitBtn');
+            const lengthReq = document.getElementById('length-req');
+            const uppercaseReq = document.getElementById('uppercase-req');
+            const specialReq = document.getElementById('special-req');
+
+            function validatePassword() {
+                const password = passwordInput.value;
+                let isValid = true;
+
+                // Check length
+                if (password.length >= 8) {
+                    lengthReq.classList.add('valid');
+                    lengthReq.classList.remove('invalid');
+                    lengthReq.querySelector('i').className = 'fas fa-check';
+                } else {
+                    lengthReq.classList.add('invalid');
+                    lengthReq.classList.remove('valid');
+                    lengthReq.querySelector('i').className = 'fas fa-times';
+                    isValid = false;
+                }
+
+                // Check uppercase
+                if (/[A-Z]/.test(password)) {
+                    uppercaseReq.classList.add('valid');
+                    uppercaseReq.classList.remove('invalid');
+                    uppercaseReq.querySelector('i').className = 'fas fa-check';
+                } else {
+                    uppercaseReq.classList.add('invalid');
+                    uppercaseReq.classList.remove('valid');
+                    uppercaseReq.querySelector('i').className = 'fas fa-times';
+                    isValid = false;
+                }
+
+                // Check special characters
+                if (/[@#$]/.test(password)) {
+                    specialReq.classList.add('valid');
+                    specialReq.classList.remove('invalid');
+                    specialReq.querySelector('i').className = 'fas fa-check';
+                } else {
+                    specialReq.classList.add('invalid');
+                    specialReq.classList.remove('valid');
+                    specialReq.querySelector('i').className = 'fas fa-times';
+                    isValid = false;
+                }
+
+                // Check if passwords match
+                const passwordsMatch = password === confirmPasswordInput.value && password.length > 0;
+
+                // Enable/disable submit button
+                submitBtn.disabled = !(isValid && passwordsMatch);
+
+                return isValid;
+            }
+
+            passwordInput.addEventListener('input', validatePassword);
+            confirmPasswordInput.addEventListener('input', validatePassword);
+
+            // Form submission validation
+            document.getElementById('registerForm').addEventListener('submit', function(e) {
+                if (!validatePassword()) {
+                    e.preventDefault();
+                    alert('Please ensure your password meets all requirements.');
+                }
+
+                if (passwordInput.value !== confirmPasswordInput.value) {
+                    e.preventDefault();
+                    alert('Passwords do not match.');
+                }
+            });
+        });
+    </script>
 </body>
 </html>
