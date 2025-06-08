@@ -40,44 +40,56 @@ $paymentDetails = json_decode($payment['payment_details'], true);
 
 <div class="container">
     <div class="success-container">
-        <div class="success-icon">
-            <i class="fas fa-check-circle"></i>
+        <div class="success-animation">
+            <div class="checkmark-circle">
+                <div class="checkmark"></div>
+            </div>
         </div>
         
         <h1 class="success-title">Payment Successful!</h1>
-        <p class="success-message">Your fine payment has been processed successfully.</p>
+        <p class="success-message">Your fine payment has been processed successfully via Stripe.</p>
         
         <div class="receipt-container">
             <div class="receipt-header">
-                <h2><i class="fas fa-receipt"></i> Payment Receipt</h2>
-                <div class="receipt-number">Receipt #<?php echo $receiptNumber; ?></div>
+                <div class="receipt-logo">
+                    <i class="fas fa-university"></i>
+                    <h2>Library Management System</h2>
+                </div>
+                <div class="receipt-number">
+                    <h3>Receipt #<?php echo $receiptNumber; ?></h3>
+                    <p><?php echo date('F d, Y H:i:s', strtotime($payment['payment_date'])); ?></p>
+                </div>
             </div>
             
             <div class="receipt-body">
                 <div class="receipt-section">
-                    <h3>Transaction Details</h3>
+                    <h3><i class="fas fa-credit-card"></i> Payment Information</h3>
                     <div class="detail-grid">
                         <div class="detail-item">
                             <span class="label">Transaction ID:</span>
                             <span class="value"><?php echo $transactionId; ?></span>
                         </div>
                         <div class="detail-item">
-                            <span class="label">Payment Date:</span>
-                            <span class="value"><?php echo date('F d, Y H:i:s', strtotime($payment['payment_date'])); ?></span>
-                        </div>
-                        <div class="detail-item">
                             <span class="label">Payment Method:</span>
-                            <span class="value"><?php echo ucwords(str_replace('_', ' ', $payment['payment_method'])); ?></span>
+                            <span class="value">
+                                <i class="fab fa-stripe"></i> Stripe (Credit Card)
+                            </span>
                         </div>
                         <div class="detail-item">
                             <span class="label">Amount Paid:</span>
                             <span class="value amount">$<?php echo number_format($payment['amount'], 2); ?></span>
                         </div>
+                        <div class="detail-item">
+                            <span class="label">Payment Status:</span>
+                            <span class="value status-paid">
+                                <i class="fas fa-check-circle"></i> PAID
+                            </span>
+                        </div>
                     </div>
                 </div>
                 
                 <div class="receipt-section">
-                    <h3>Customer Details</h3>
+                    <h3><i class="fas fa-user"></i> Customer Details</h3>
                     <div class="detail-grid">
                         <div class="detail-item">
                             <span class="label">Name:</span>
@@ -91,7 +103,7 @@ $paymentDetails = json_decode($payment['payment_details'], true);
                 </div>
                 
                 <div class="receipt-section">
-                    <h3>Fine Details</h3>
+                    <h3><i class="fas fa-book"></i> Fine Details</h3>
                     <div class="detail-grid">
                         <div class="detail-item">
                             <span class="label">Book:</span>
@@ -107,41 +119,16 @@ $paymentDetails = json_decode($payment['payment_details'], true);
                         </div>
                     </div>
                 </div>
-                
-                <?php if ($paymentDetails): ?>
-                <div class="receipt-section">
-                    <h3>Payment Information</h3>
-                    <div class="detail-grid">
-                        <?php if (isset($paymentDetails['card_last_four'])): ?>
-                        <div class="detail-item">
-                            <span class="label">Card ending in:</span>
-                            <span class="value">****<?php echo $paymentDetails['card_last_four']; ?></span>
-                        </div>
-                        <?php endif; ?>
-                        
-                        <?php if (isset($paymentDetails['bank_account'])): ?>
-                        <div class="detail-item">
-                            <span class="label">Account ending in:</span>
-                            <span class="value">****<?php echo $paymentDetails['bank_account']; ?></span>
-                        </div>
-                        <?php endif; ?>
-                        
-                        <?php if (isset($paymentDetails['upi_id'])): ?>
-                        <div class="detail-item">
-                            <span class="label">UPI ID:</span>
-                            <span class="value"><?php echo htmlspecialchars($paymentDetails['upi_id']); ?></span>
-                        </div>
-                        <?php endif; ?>
-                    </div>
-                </div>
-                <?php endif; ?>
             </div>
             
             <div class="receipt-footer">
-                <p><strong>Status:</strong> <span class="status-paid">PAID</span></p>
+                <div class="security-badge">
+                    <i class="fas fa-shield-alt"></i>
+                    <span>Secured by Stripe</span>
+                </div>
                 <p class="footer-note">
-                    Thank you for your payment. This receipt serves as proof of payment. 
-                    Please keep this for your records.
+                    This receipt serves as proof of payment. Your transaction has been processed securely 
+                    through Stripe's industry-leading payment platform. Please keep this for your records.
                 </p>
             </div>
         </div>
@@ -170,21 +157,62 @@ $paymentDetails = json_decode($payment['payment_details'], true);
     text-align: center;
 }
 
-.success-icon {
-    font-size: 4em;
-    color: var(--success-color);
-    margin-bottom: 20px;
+.success-animation {
+    margin-bottom: 30px;
+}
+
+.checkmark-circle {
+    width: 80px;
+    height: 80px;
+    border-radius: 50%;
+    background: var(--success-color);
+    margin: 0 auto;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    animation: scaleIn 0.5s ease-out;
+}
+
+.checkmark {
+    width: 30px;
+    height: 15px;
+    border: 3px solid var(--white);
+    border-top: none;
+    border-right: none;
+    transform: rotate(-45deg);
+    animation: checkmarkDraw 0.3s ease-out 0.2s both;
+}
+
+@keyframes scaleIn {
+    0% {
+        transform: scale(0);
+    }
+    100% {
+        transform: scale(1);
+    }
+}
+
+@keyframes checkmarkDraw {
+    0% {
+        width: 0;
+        height: 0;
+    }
+    100% {
+        width: 30px;
+        height: 15px;
+    }
 }
 
 .success-title {
     color: var(--success-color);
     margin-bottom: 10px;
+    font-size: 2.5em;
 }
 
 .success-message {
     font-size: 1.2em;
     color: var(--text-light);
-    margin-bottom: 30px;
+    margin-bottom: 40px;
 }
 
 .receipt-container {
@@ -193,29 +221,45 @@ $paymentDetails = json_decode($payment['payment_details'], true);
     box-shadow: var(--box-shadow);
     margin-bottom: 30px;
     text-align: left;
-    max-width: 600px;
-    margin-left: auto;
-    margin-right: auto;
+    overflow: hidden;
 }
 
 .receipt-header {
-    background: var(--primary-color);
+    background: linear-gradient(135deg, var(--primary-color), var(--primary-light));
     color: var(--white);
-    padding: 20px;
-    border-radius: var(--border-radius) var(--border-radius) 0 0;
+    padding: 30px;
     display: flex;
     justify-content: space-between;
     align-items: center;
 }
 
-.receipt-header h2 {
+.receipt-logo {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+}
+
+.receipt-logo i {
+    font-size: 2em;
+}
+
+.receipt-logo h2 {
     margin: 0;
     font-size: 1.5em;
 }
 
 .receipt-number {
-    font-size: 1.1em;
-    font-weight: bold;
+    text-align: right;
+}
+
+.receipt-number h3 {
+    margin: 0;
+    font-size: 1.2em;
+}
+
+.receipt-number p {
+    margin: 5px 0 0;
+    opacity: 0.9;
 }
 
 .receipt-body {
@@ -223,7 +267,7 @@ $paymentDetails = json_decode($payment['payment_details'], true);
 }
 
 .receipt-section {
-    margin-bottom: 25px;
+    margin-bottom: 30px;
     padding-bottom: 20px;
     border-bottom: 1px solid var(--gray-200);
 }
@@ -235,20 +279,23 @@ $paymentDetails = json_decode($payment['payment_details'], true);
 
 .receipt-section h3 {
     color: var(--primary-color);
-    margin-bottom: 15px;
+    margin-bottom: 20px;
     font-size: 1.2em;
+    display: flex;
+    align-items: center;
+    gap: 10px;
 }
 
 .detail-grid {
     display: grid;
-    gap: 10px;
+    gap: 15px;
 }
 
 .detail-item {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    padding: 8px 0;
+    padding: 10px 0;
 }
 
 .label {
@@ -262,30 +309,43 @@ $paymentDetails = json_decode($payment['payment_details'], true);
 }
 
 .value.amount {
-    font-size: 1.2em;
+    font-size: 1.3em;
     color: var(--success-color);
-}
-
-.receipt-footer {
-    background: var(--gray-100);
-    padding: 20px;
-    border-radius: 0 0 var(--border-radius) var(--border-radius);
-    text-align: center;
 }
 
 .status-paid {
     color: var(--success-color);
-    font-weight: bold;
     background: rgba(40, 167, 69, 0.1);
-    padding: 4px 12px;
+    padding: 5px 15px;
     border-radius: 20px;
+    font-size: 0.9em;
+}
+
+.receipt-footer {
+    background: var(--gray-100);
+    padding: 25px 30px;
+    text-align: center;
+}
+
+.security-badge {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    margin-bottom: 15px;
+    color: var(--success-color);
+    font-weight: 600;
+}
+
+.security-badge i {
+    font-size: 1.2em;
 }
 
 .footer-note {
-    margin-top: 15px;
+    margin: 0;
     font-size: 0.9em;
     color: var(--text-light);
-    line-height: 1.5;
+    line-height: 1.6;
 }
 
 .action-buttons {
@@ -302,7 +362,11 @@ $paymentDetails = json_decode($payment['payment_details'], true);
 @media (max-width: 768px) {
     .receipt-header {
         flex-direction: column;
-        gap: 10px;
+        gap: 20px;
+        text-align: center;
+    }
+    
+    .receipt-number {
         text-align: center;
     }
     
@@ -315,6 +379,10 @@ $paymentDetails = json_decode($payment['payment_details'], true);
         width: 100%;
         max-width: 300px;
     }
+    
+    .success-title {
+        font-size: 2em;
+    }
 }
 
 @media print {
@@ -322,7 +390,7 @@ $paymentDetails = json_decode($payment['payment_details'], true);
         display: none;
     }
     
-    .success-icon,
+    .success-animation,
     .success-title,
     .success-message {
         display: none;
@@ -341,16 +409,21 @@ function printReceipt() {
 }
 
 function downloadReceipt() {
-    // In a real system, this would generate a PDF
+    // In a real implementation, this would generate a PDF using libraries like jsPDF
     alert('PDF download functionality would be implemented here using libraries like jsPDF or server-side PDF generation.');
 }
 
-// Auto-redirect after 30 seconds
+// Auto-redirect after 60 seconds
 setTimeout(function() {
     if (confirm('Would you like to return to the dashboard?')) {
         window.location.href = 'dashboard.php';
     }
-}, 30000);
+}, 60000);
+
+// Show success animation on page load
+document.addEventListener('DOMContentLoaded', function() {
+    // Add any additional success animations here
+});
 </script>
 
 <?php include_once '../includes/footer.php'; ?>

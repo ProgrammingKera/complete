@@ -95,28 +95,36 @@ while ($row = $result->fetch_assoc()) {
     <?php endif; ?>
 
     <div class="search-section mb-4">
-        <form action="" method="GET" class="d-flex">
-            <div class="form-group mr-2">
-                <input type="text" name="search" placeholder="Search books..." class="form-control" value="<?php echo htmlspecialchars($search); ?>">
+        <form action="" method="GET" class="search-form">
+            <div class="search-row">
+                <div class="search-input-group">
+                    <input type="text" name="search" placeholder="Search books by title, author, or ISBN..." 
+                           class="form-control search-input" value="<?php echo htmlspecialchars($search); ?>">
+                </div>
+                
+                <div class="search-select-group">
+                    <select name="category" class="form-control category-select">
+                        <option value="">All Categories</option>
+                        <?php foreach ($categories as $cat): ?>
+                            <option value="<?php echo htmlspecialchars($cat); ?>" <?php echo $category == $cat ? 'selected' : ''; ?>>
+                                <?php echo htmlspecialchars($cat); ?>
+                            </option>
+                        <?php endforeach; ?>
+                    </select>
+                </div>
+                
+                <div class="search-button-group">
+                    <button type="submit" class="btn btn-primary search-btn">
+                        <i class="fas fa-search"></i> Search
+                    </button>
+                    <?php if (!empty($search) || !empty($category)): ?>
+                        <a href="books.php" class="btn btn-secondary clear-btn">
+                            <i class="fas fa-times"></i> Clear
+                        </a>
+                    <?php endif; ?>
+                </div>
             </div>
-            
-            <div class="form-group mr-2">
-                <select name="category" class="form-control">
-                    <option value="">All Categories</option>
-                    <?php foreach ($categories as $cat): ?>
-                        <option value="<?php echo htmlspecialchars($cat); ?>" <?php echo $category == $cat ? 'selected' : ''; ?>>
-                            <?php echo htmlspecialchars($cat); ?>
-                        </option>
-                    <?php endforeach; ?>
-                </select>
-            </div>
-            <button type="submit" class="btn btn-primary">
-                <i class="fas fa-search"></i> Search
-            </button>
-            </form>
-            
-
-        
+        </form>
     </div>
 
     <div class="books-grid">
@@ -179,9 +187,125 @@ while ($row = $result->fetch_assoc()) {
                 </div>
             <?php endforeach; ?>
         <?php else: ?>
-            <div class="alert alert-info">No books found matching your criteria.</div>
+            <div class="no-results">
+                <i class="fas fa-search fa-3x text-muted mb-3"></i>
+                <h3>No Books Found</h3>
+                <p class="text-muted">
+                    <?php if (!empty($search) || !empty($category)): ?>
+                        No books match your search criteria. Try adjusting your search terms.
+                    <?php else: ?>
+                        No books are currently available in the library.
+                    <?php endif; ?>
+                </p>
+                <?php if (!empty($search) || !empty($category)): ?>
+                    <a href="books.php" class="btn btn-primary">
+                        <i class="fas fa-list"></i> View All Books
+                    </a>
+                <?php endif; ?>
+            </div>
         <?php endif; ?>
     </div>
 </div>
+
+<style>
+.search-section {
+    background: var(--white);
+    padding: 20px;
+    border-radius: var(--border-radius);
+    box-shadow: var(--box-shadow);
+    margin-bottom: 30px;
+}
+
+.search-form {
+    width: 100%;
+}
+
+.search-row {
+    display: flex;
+    gap: 15px;
+    align-items: flex-end;
+    flex-wrap: wrap;
+}
+
+.search-input-group {
+    flex: 2;
+    min-width: 250px;
+}
+
+.search-select-group {
+    flex: 1;
+    min-width: 200px;
+}
+
+.search-button-group {
+    display: flex;
+    gap: 10px;
+}
+
+.search-input, .category-select {
+    width: 100%;
+    padding: 12px 15px;
+    border: 2px solid var(--gray-300);
+    border-radius: var(--border-radius);
+    font-size: 1em;
+    transition: var(--transition);
+}
+
+.search-input:focus, .category-select:focus {
+    border-color: var(--primary-color);
+    outline: none;
+    box-shadow: 0 0 0 3px rgba(13, 71, 161, 0.1);
+}
+
+.search-btn, .clear-btn {
+    padding: 12px 20px;
+    white-space: nowrap;
+    font-weight: 500;
+}
+
+.clear-btn {
+    background-color: var(--gray-400);
+    color: var(--white);
+}
+
+.clear-btn:hover {
+    background-color: var(--gray-500);
+}
+
+.no-results {
+    text-align: center;
+    padding: 60px 20px;
+    background: var(--white);
+    border-radius: var(--border-radius);
+    box-shadow: var(--box-shadow);
+}
+
+.no-results h3 {
+    color: var(--text-color);
+    margin-bottom: 15px;
+}
+
+@media (max-width: 768px) {
+    .search-row {
+        flex-direction: column;
+        align-items: stretch;
+    }
+    
+    .search-input-group,
+    .search-select-group {
+        flex: none;
+        min-width: auto;
+    }
+    
+    .search-button-group {
+        justify-content: center;
+    }
+    
+    .search-btn, .clear-btn {
+        flex: 1;
+        max-width: 150px;
+    }
+}
+</style>
 
 <?php include_once '../includes/footer.php'; ?>

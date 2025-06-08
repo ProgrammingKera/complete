@@ -35,95 +35,53 @@ if (isset($_GET['fine_id'])) {
     }
 }
 
-// Process payment
-if (isset($_POST['process_payment']) && $fine) {
-    $paymentMethod = $_POST['payment_method'];
-    $cardNumber = isset($_POST['card_number']) ? $_POST['card_number'] : '';
-    $cardExpiry = isset($_POST['card_expiry']) ? $_POST['card_expiry'] : '';
-    $cardCvv = isset($_POST['card_cvv']) ? $_POST['card_cvv'] : '';
-    $bankAccount = isset($_POST['bank_account']) ? $_POST['bank_account'] : '';
-    $upiId = isset($_POST['upi_id']) ? $_POST['upi_id'] : '';
+// Process Stripe payment
+if (isset($_POST['process_stripe_payment']) && $fine) {
+    $stripeToken = $_POST['stripeToken'];
+    $stripeEmail = $_POST['stripeEmail'];
     
-    // Validate payment method specific fields
-    $validPayment = true;
-    $errorMsg = '';
-    
-    switch ($paymentMethod) {
-        case 'credit_card':
-        case 'debit_card':
-            if (empty($cardNumber) || empty($cardExpiry) || empty($cardCvv)) {
-                $validPayment = false;
-                $errorMsg = 'Please fill all card details.';
-            } elseif (strlen($cardNumber) < 16) {
-                $validPayment = false;
-                $errorMsg = 'Invalid card number.';
-            } elseif (strlen($cardCvv) < 3) {
-                $validPayment = false;
-                $errorMsg = 'Invalid CVV.';
-            }
-            break;
-            
-        case 'net_banking':
-            if (empty($bankAccount)) {
-                $validPayment = false;
-                $errorMsg = 'Please enter bank account number.';
-            }
-            break;
-            
-        case 'upi':
-            if (empty($upiId)) {
-                $validPayment = false;
-                $errorMsg = 'Please enter UPI ID.';
-            } elseif (!filter_var($upiId, FILTER_VALIDATE_EMAIL) && !preg_match('/^[0-9]{10}@[a-zA-Z0-9]+$/', $upiId)) {
-                $validPayment = false;
-                $errorMsg = 'Invalid UPI ID format.';
-            }
-            break;
-    }
-    
-    if ($validPayment) {
-        // Simulate payment processing delay
-        sleep(1);
+    if (empty($stripeToken)) {
+        $message = "Payment failed. Please try again.";
+        $messageType = "danger";
+    } else {
+        // Simulate Stripe payment processing
+        // In a real implementation, you would use Stripe's PHP SDK here
         
         // Generate transaction ID
-        $transactionId = 'TXN' . date('YmdHis') . rand(1000, 9999);
+        $transactionId = 'stripe_' . date('YmdHis') . rand(1000, 9999);
         
         // Update fine status
         $stmt = $conn->prepare("UPDATE fines SET status = 'paid' WHERE id = ?");
         $stmt->bind_param("i", $fine['id']);
         
         if ($stmt->execute()) {
-            // Record payment with additional details
+            // Record payment
             $receiptNumber = 'RCP' . date('Ymd') . str_pad($fine['id'], 4, '0', STR_PAD_LEFT);
             $paymentDetails = json_encode([
+                'stripe_token' => substr($stripeToken, 0, 20) . '...',
+                'stripe_email' => $stripeEmail,
                 'transaction_id' => $transactionId,
-                'card_last_four' => $paymentMethod == 'credit_card' || $paymentMethod == 'debit_card' ? substr($cardNumber, -4) : null,
-                'bank_account' => $paymentMethod == 'net_banking' ? substr($bankAccount, -4) : null,
-                'upi_id' => $paymentMethod == 'upi' ? $upiId : null
+                'card_last_four' => '****' // In real implementation, get from Stripe response
             ]);
             
             $stmt = $conn->prepare("
                 INSERT INTO payments (fine_id, user_id, amount, payment_method, receipt_number, transaction_id, payment_details) 
-                VALUES (?, ?, ?, ?, ?, ?, ?)
+                VALUES (?, ?, ?, 'stripe', ?, ?, ?)
             ");
-            $stmt->bind_param("iidssss", $fine['id'], $userId, $fine['amount'], $paymentMethod, $receiptNumber, $transactionId, $paymentDetails);
+            $stmt->bind_param("iidsss", $fine['id'], $userId, $fine['amount'], $receiptNumber, $transactionId, $paymentDetails);
             $stmt->execute();
             
             // Send notification
-            $notificationMessage = "Fine payment of $" . number_format($fine['amount'], 2) . " processed successfully via " . ucwords(str_replace('_', ' ', $paymentMethod)) . ". Transaction ID: " . $transactionId;
+            $notificationMessage = "Fine payment of $" . number_format($fine['amount'], 2) . " processed successfully via Stripe. Transaction ID: " . $transactionId;
             sendNotification($conn, $userId, $notificationMessage);
             
             // Redirect to success page
-            
             echo "<script>window.location.href='payment_success.php?receipt=$receiptNumber&transaction=$transactionId';</script>";
-exit();
+            exit();
         } else {
             $message = "Payment processing failed. Please try again.";
             $messageType = "danger";
         }
-    } else {
-        $message = $errorMsg;
-        $messageType = "danger";
     }
 }
 
@@ -135,7 +93,7 @@ $conn->query($sql);
 ?>
 
 <div class="container">
-    <h1 class="page-title">Payment Gateway</h1>
+    <h1 class="page-title">Secure Payment Gateway</h1>
 
     <?php if (!empty($message)): ?>
         <div class="alert alert-<?php echo $messageType; ?>">
@@ -145,199 +103,82 @@ $conn->query($sql);
     <?php endif; ?>
 
     <?php if ($fine): ?>
-        <div class="row">
+        <div class="payment-container">
             <!-- Payment Summary -->
-            <div class="col-md-4">
-                <div class="card payment-summary">
-                    <div class="card-header">
-                        <h3><i class="fas fa-receipt"></i> Payment Summary</h3>
-                    </div>
-                    <div class="card-body">
-                        <div class="fine-details">
-                            <h4><?php echo htmlspecialchars($fine['title']); ?></h4>
-                            <p class="text-muted">by <?php echo htmlspecialchars($fine['author']); ?></p>
-                            
-                            <hr>
-                            
-                            <div class="detail-row">
-                                <span>Fine Reason:</span>
-                                <span><?php echo htmlspecialchars($fine['reason']); ?></span>
-                            </div>
-                            
-                            <div class="detail-row">
-                                <span>Due Date:</span>
-                                <span><?php echo date('M d, Y', strtotime($fine['return_date'])); ?></span>
-                            </div>
-                            
-                            <div class="detail-row">
-                                <span>Return Date:</span>
-                                <span><?php echo date('M d, Y', strtotime($fine['actual_return_date'])); ?></span>
-                            </div>
-                            
-                            <hr>
-                            
-                            <div class="total-amount">
-                                <span>Total Amount:</span>
-                                <span class="amount">$<?php echo number_format($fine['amount'], 2); ?></span>
-                            </div>
+            <div class="payment-summary-card">
+                <div class="card-header">
+                    <h3><i class="fas fa-receipt"></i> Payment Summary</h3>
+                </div>
+                <div class="card-body">
+                    <div class="fine-details">
+                        <h4><?php echo htmlspecialchars($fine['title']); ?></h4>
+                        <p class="text-muted">by <?php echo htmlspecialchars($fine['author']); ?></p>
+                        
+                        <hr>
+                        
+                        <div class="detail-row">
+                            <span>Fine Reason:</span>
+                            <span><?php echo htmlspecialchars($fine['reason']); ?></span>
                         </div>
                         
-                        <div class="security-info">
-                            <i class="fas fa-shield-alt"></i>
-                            <small>Your payment is secured with 256-bit SSL encryption</small>
+                        <div class="detail-row">
+                            <span>Due Date:</span>
+                            <span><?php echo date('M d, Y', strtotime($fine['return_date'])); ?></span>
                         </div>
+                        
+                        <div class="detail-row">
+                            <span>Return Date:</span>
+                            <span><?php echo date('M d, Y', strtotime($fine['actual_return_date'])); ?></span>
+                        </div>
+                        
+                        <hr>
+                        
+                        <div class="total-amount">
+                            <span>Total Amount:</span>
+                            <span class="amount">$<?php echo number_format($fine['amount'], 2); ?></span>
+                        </div>
+                    </div>
+                    
+                    <div class="security-info">
+                        <i class="fas fa-shield-alt"></i>
+                        <small>Secured by Stripe - Industry leading payment security</small>
                     </div>
                 </div>
             </div>
 
-            <!-- Payment Form -->
-            <div class="col-md-8">
-                <div class="card payment-form">
-                    <div class="card-header">
-                        <h3><i class="fas fa-credit-card"></i> Select Payment Method</h3>
+            <!-- Stripe Payment Form -->
+            <div class="stripe-payment-card">
+                <div class="card-header">
+                    <h3><i class="fab fa-stripe"></i> Pay with Credit Card</h3>
+                    <div class="accepted-cards">
+                        <i class="fab fa-cc-visa"></i>
+                        <i class="fab fa-cc-mastercard"></i>
+                        <i class="fab fa-cc-amex"></i>
+                        <i class="fab fa-cc-discover"></i>
                     </div>
-                    <div class="card-body">
-                        <form method="POST" id="paymentForm">
-                            <!-- Payment Method Selection -->
-                            <div class="payment-methods">
-                                <div class="method-option">
-                                    <input type="radio" id="credit_card" name="payment_method" value="credit_card" required>
-                                    <label for="credit_card">
-                                        <i class="fab fa-cc-visa"></i>
-                                        <i class="fab fa-cc-mastercard"></i>
-                                        Credit Card
-                                    </label>
-                                </div>
-                                
-                                <div class="method-option">
-                                    <input type="radio" id="debit_card" name="payment_method" value="debit_card" required>
-                                    <label for="debit_card">
-                                        <i class="fas fa-credit-card"></i>
-                                        Debit Card
-                                    </label>
-                                </div>
-                                
-                                <div class="method-option">
-                                    <input type="radio" id="net_banking" name="payment_method" value="net_banking" required>
-                                    <label for="net_banking">
-                                        <i class="fas fa-university"></i>
-                                        Net Banking
-                                    </label>
-                                </div>
-                                
-                                <div class="method-option">
-                                    <input type="radio" id="upi" name="payment_method" value="upi" required>
-                                    <label for="upi">
-                                        <i class="fas fa-mobile-alt"></i>
-                                        UPI Payment
-                                    </label>
-                                </div>
-                                
-                                <div class="method-option">
-                                    <input type="radio" id="wallet" name="payment_method" value="wallet" required>
-                                    <label for="wallet">
-                                        <i class="fas fa-wallet"></i>
-                                        Digital Wallet
-                                    </label>
-                                </div>
-                            </div>
-
-                            <!-- Card Payment Details -->
-                            <div id="card_details" class="payment-details" style="display: none;">
-                                <h4>Card Details</h4>
-                                <div class="form-row">
-                                    <div class="form-group col-md-12">
-                                        <label for="card_number">Card Number</label>
-                                        <input type="text" id="card_number" name="card_number" class="form-control" 
-                                               placeholder="1234 5678 9012 3456" maxlength="19">
-                                    </div>
-                                </div>
-                                <div class="form-row">
-                                    <div class="form-group col-md-6">
-                                        <label for="card_expiry">Expiry Date</label>
-                                        <input type="text" id="card_expiry" name="card_expiry" class="form-control" 
-                                               placeholder="MM/YY" maxlength="5">
-                                    </div>
-                                    <div class="form-group col-md-6">
-                                        <label for="card_cvv">CVV</label>
-                                        <input type="text" id="card_cvv" name="card_cvv" class="form-control" 
-                                               placeholder="123" maxlength="4">
-                                    </div>
-                                </div>
-                                <div class="form-group">
-                                    <label for="card_name">Cardholder Name</label>
-                                    <input type="text" id="card_name" name="card_name" class="form-control" 
-                                           placeholder="John Doe">
-                                </div>
-                            </div>
-
-                            <!-- Net Banking Details -->
-                            <div id="banking_details" class="payment-details" style="display: none;">
-                                <h4>Net Banking Details</h4>
-                                <div class="form-group">
-                                    <label for="bank_name">Select Bank</label>
-                                    <select id="bank_name" name="bank_name" class="form-control">
-                                        <option value="">Choose your bank</option>
-                                        <option value="sbi">State Bank of India</option>
-                                        <option value="hdfc">HDFC Bank</option>
-                                        <option value="icici">ICICI Bank</option>
-                                        <option value="axis">Axis Bank</option>
-                                        <option value="pnb">Punjab National Bank</option>
-                                        <option value="other">Other</option>
-                                    </select>
-                                </div>
-                                <div class="form-group">
-                                    <label for="bank_account">Account Number</label>
-                                    <input type="text" id="bank_account" name="bank_account" class="form-control" 
-                                           placeholder="Enter account number">
-                                </div>
-                            </div>
-
-                            <!-- UPI Details -->
-                            <div id="upi_details" class="payment-details" style="display: none;">
-                                <h4>UPI Payment</h4>
-                                <div class="form-group">
-                                    <label for="upi_id">UPI ID</label>
-                                    <input type="text" id="upi_id" name="upi_id" class="form-control" 
-                                           placeholder="yourname@paytm or 9876543210@ybl">
-                                </div>
-                                <div class="upi-apps">
-                                    <p>Popular UPI Apps:</p>
-                                    <div class="app-icons">
-                                        <span class="app-icon">📱 PhonePe</span>
-                                        <span class="app-icon">💰 Paytm</span>
-                                        <span class="app-icon">🏦 Google Pay</span>
-                                        <span class="app-icon">💳 BHIM</span>
-                                    </div>
-                                </div>
-                            </div>
-
-                            <!-- Wallet Details -->
-                            <div id="wallet_details" class="payment-details" style="display: none;">
-                                <h4>Digital Wallet</h4>
-                                <div class="form-group">
-                                    <label for="wallet_type">Select Wallet</label>
-                                    <select id="wallet_type" name="wallet_type" class="form-control">
-                                        <option value="">Choose wallet</option>
-                                        <option value="paytm">Paytm Wallet</option>
-                                        <option value="phonepe">PhonePe Wallet</option>
-                                        <option value="amazon">Amazon Pay</option>
-                                        <option value="mobikwik">MobiKwik</option>
-                                        <option value="freecharge">FreeCharge</option>
-                                    </select>
-                                </div>
-                            </div>
-
-                            <div class="payment-actions">
-                                <a href="fines.php" class="btn btn-secondary">
-                                    <i class="fas fa-arrow-left"></i> Back to Fines
-                                </a>
-                                <button type="submit" name="process_payment" class="btn btn-primary btn-lg">
-                                    <i class="fas fa-lock"></i> Pay $<?php echo number_format($fine['amount'], 2); ?>
-                                </button>
-                            </div>
-                        </form>
-                    </div>
+                </div>
+                <div class="card-body">
+                    <form action="" method="POST" id="stripe-payment-form">
+                        <div id="stripe-card-element" class="stripe-element">
+                            <!-- Stripe Elements will create form elements here -->
+                        </div>
+                        
+                        <div id="stripe-card-errors" role="alert" class="stripe-errors"></div>
+                        
+                        <div class="payment-actions">
+                            <a href="fines.php" class="btn btn-secondary">
+                                <i class="fas fa-arrow-left"></i> Back to Fines
+                            </a>
+                            <button type="submit" id="stripe-submit-btn" class="btn btn-primary btn-lg">
+                                <i class="fas fa-lock"></i> Pay $<?php echo number_format($fine['amount'], 2); ?>
+                            </button>
+                        </div>
+                        
+                        <!-- Hidden fields for Stripe -->
+                        <input type="hidden" name="process_stripe_payment" value="1">
+                        <input type="hidden" name="stripeToken" id="stripeToken">
+                        <input type="hidden" name="stripeEmail" id="stripeEmail">
+                    </form>
                 </div>
             </div>
         </div>
@@ -350,25 +191,51 @@ $conn->query($sql);
     <?php endif; ?>
 </div>
 
+<!-- Stripe Checkout Script -->
+<script src="https://checkout.stripe.com/checkout.js"></script>
+
 <style>
-.row {
+.payment-container {
+    display: grid;
+    grid-template-columns: 1fr 2fr;
+    gap: 30px;
+    max-width: 1200px;
+    margin: 0 auto;
+}
+
+.payment-summary-card, .stripe-payment-card {
+    background: var(--white);
+    border-radius: var(--border-radius);
+    box-shadow: var(--box-shadow);
+    overflow: hidden;
+}
+
+.card-header {
+    background: var(--primary-color);
+    color: var(--white);
+    padding: 20px;
     display: flex;
-    flex-wrap: wrap;
-    margin: 0 -15px;
+    justify-content: space-between;
+    align-items: center;
 }
 
-.col-md-4, .col-md-6, .col-md-8, .col-md-12 {
-    padding: 0 15px;
+.card-header h3 {
+    margin: 0;
+    font-size: 1.2em;
 }
 
-.col-md-4 { flex: 0 0 33.333333%; max-width: 33.333333%; }
-.col-md-6 { flex: 0 0 50%; max-width: 50%; }
-.col-md-8 { flex: 0 0 66.666667%; max-width: 66.666667%; }
-.col-md-12 { flex: 0 0 100%; max-width: 100%; }
+.accepted-cards {
+    display: flex;
+    gap: 10px;
+}
 
-.payment-summary {
-    position: sticky;
-    top: 20px;
+.accepted-cards i {
+    font-size: 1.5em;
+    opacity: 0.8;
+}
+
+.card-body {
+    padding: 30px;
 }
 
 .fine-details h4 {
@@ -398,7 +265,7 @@ $conn->query($sql);
 
 .security-info {
     background: var(--gray-100);
-    padding: 10px;
+    padding: 15px;
     border-radius: var(--border-radius);
     text-align: center;
     margin-top: 20px;
@@ -409,88 +276,27 @@ $conn->query($sql);
     margin-right: 5px;
 }
 
-.payment-methods {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-    gap: 15px;
-    margin-bottom: 30px;
-}
-
-.method-option {
-    position: relative;
-}
-
-.method-option input[type="radio"] {
-    display: none;
-}
-
-.method-option label {
-    display: block;
-    padding: 20px;
+.stripe-element {
+    background: var(--white);
+    padding: 15px;
     border: 2px solid var(--gray-300);
     border-radius: var(--border-radius);
-    text-align: center;
-    cursor: pointer;
+    margin-bottom: 20px;
     transition: var(--transition);
-    background: var(--white);
 }
 
-.method-option label:hover {
+.stripe-element:focus-within {
     border-color: var(--primary-color);
-    background: rgba(13, 71, 161, 0.05);
+    box-shadow: 0 0 0 3px rgba(13, 71, 161, 0.1);
 }
 
-.method-option input[type="radio"]:checked + label {
-    border-color: var(--primary-color);
-    background: rgba(13, 71, 161, 0.1);
-    color: var(--primary-color);
-}
-
-.method-option label i {
-    display: block;
-    font-size: 2em;
-    margin-bottom: 10px;
-    color: var(--primary-color);
-}
-
-.payment-details {
-    background: var(--gray-100);
-    padding: 20px;
-    border-radius: var(--border-radius);
+.stripe-errors {
+    color: var(--danger-color);
     margin-bottom: 20px;
-}
-
-.payment-details h4 {
-    margin-bottom: 20px;
-    color: var(--primary-color);
-}
-
-.form-row {
-    display: flex;
-    flex-wrap: wrap;
-    margin: 0 -10px;
-}
-
-.form-row .form-group {
-    padding: 0 10px;
-}
-
-.upi-apps {
-    margin-top: 15px;
-}
-
-.app-icons {
-    display: flex;
-    gap: 10px;
-    flex-wrap: wrap;
-}
-
-.app-icon {
-    background: var(--white);
-    padding: 5px 10px;
+    padding: 10px;
+    background: rgba(220, 53, 69, 0.1);
     border-radius: var(--border-radius);
-    font-size: 0.9em;
-    border: 1px solid var(--gray-300);
+    display: none;
 }
 
 .payment-actions {
@@ -503,18 +309,45 @@ $conn->query($sql);
 }
 
 .btn-lg {
-    padding: 12px 30px;
+    padding: 15px 30px;
     font-size: 1.1em;
+    font-weight: 600;
+}
+
+#stripe-submit-btn:disabled {
+    background-color: var(--gray-400);
+    cursor: not-allowed;
+}
+
+.payment-processing {
+    display: none;
+    text-align: center;
+    padding: 20px;
+}
+
+.spinner {
+    border: 3px solid var(--gray-300);
+    border-top: 3px solid var(--primary-color);
+    border-radius: 50%;
+    width: 30px;
+    height: 30px;
+    animation: spin 1s linear infinite;
+    margin: 0 auto 10px;
+}
+
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
 }
 
 @media (max-width: 768px) {
-    .col-md-4, .col-md-8 {
-        flex: 0 0 100%;
-        max-width: 100%;
+    .payment-container {
+        grid-template-columns: 1fr;
+        gap: 20px;
     }
     
-    .payment-methods {
-        grid-template-columns: 1fr;
+    .card-body {
+        padding: 20px;
     }
     
     .payment-actions {
@@ -530,58 +363,69 @@ $conn->query($sql);
 
 <script>
 document.addEventListener('DOMContentLoaded', function() {
-    const paymentMethods = document.querySelectorAll('input[name="payment_method"]');
-    const paymentDetails = document.querySelectorAll('.payment-details');
+    // Stripe configuration (use test key for demo)
+    const stripe = Stripe('pk_test_51234567890abcdef'); // Replace with your actual Stripe publishable key
+    const elements = stripe.elements();
     
-    paymentMethods.forEach(method => {
-        method.addEventListener('change', function() {
-            // Hide all payment details
-            paymentDetails.forEach(detail => {
-                detail.style.display = 'none';
-            });
-            
-            // Show relevant payment details
-            if (this.value === 'credit_card' || this.value === 'debit_card') {
-                document.getElementById('card_details').style.display = 'block';
-            } else if (this.value === 'net_banking') {
-                document.getElementById('banking_details').style.display = 'block';
-            } else if (this.value === 'upi') {
-                document.getElementById('upi_details').style.display = 'block';
-            } else if (this.value === 'wallet') {
-                document.getElementById('wallet_details').style.display = 'block';
-            }
-        });
+    // Create card element
+    const cardElement = elements.create('card', {
+        style: {
+            base: {
+                fontSize: '16px',
+                color: '#424770',
+                '::placeholder': {
+                    color: '#aab7c4',
+                },
+                fontFamily: '"Segoe UI", Tahoma, Geneva, Verdana, sans-serif',
+            },
+            invalid: {
+                color: '#9e2146',
+            },
+        },
     });
     
-    // Format card number
-    const cardNumber = document.getElementById('card_number');
-    if (cardNumber) {
-        cardNumber.addEventListener('input', function() {
-            let value = this.value.replace(/\s/g, '').replace(/[^0-9]/gi, '');
-            let formattedValue = value.match(/.{1,4}/g)?.join(' ') || value;
-            this.value = formattedValue;
-        });
-    }
+    cardElement.mount('#stripe-card-element');
     
-    // Format expiry date
-    const cardExpiry = document.getElementById('card_expiry');
-    if (cardExpiry) {
-        cardExpiry.addEventListener('input', function() {
-            let value = this.value.replace(/\D/g, '');
-            if (value.length >= 2) {
-                value = value.substring(0, 2) + '/' + value.substring(2, 4);
-            }
-            this.value = value;
-        });
-    }
+    // Handle form submission
+    const form = document.getElementById('stripe-payment-form');
+    const submitBtn = document.getElementById('stripe-submit-btn');
+    const errorElement = document.getElementById('stripe-card-errors');
     
-    // CVV validation
-    const cardCvv = document.getElementById('card_cvv');
-    if (cardCvv) {
-        cardCvv.addEventListener('input', function() {
-            this.value = this.value.replace(/[^0-9]/g, '');
-        });
-    }
+    form.addEventListener('submit', async function(event) {
+        event.preventDefault();
+        
+        submitBtn.disabled = true;
+        submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Processing...';
+        
+        // Create token
+        const {token, error} = await stripe.createToken(cardElement);
+        
+        if (error) {
+            // Show error to customer
+            errorElement.textContent = error.message;
+            errorElement.style.display = 'block';
+            
+            submitBtn.disabled = false;
+            submitBtn.innerHTML = '<i class="fas fa-lock"></i> Pay $<?php echo number_format($fine['amount'], 2); ?>';
+        } else {
+            // Send token to server
+            document.getElementById('stripeToken').value = token.id;
+            document.getElementById('stripeEmail').value = token.card.name || 'customer@example.com';
+            
+            // Submit form
+            form.submit();
+        }
+    });
+    
+    // Handle real-time validation errors from the card Element
+    cardElement.on('change', function(event) {
+        if (event.error) {
+            errorElement.textContent = event.error.message;
+            errorElement.style.display = 'block';
+        } else {
+            errorElement.style.display = 'none';
+        }
+    });
 });
 </script>
 
