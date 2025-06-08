@@ -163,6 +163,43 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             color: #666;
         }
 
+        .password-requirements {
+            background: #f8f9fa;
+            border: 1px solid #e9ecef;
+            border-radius: 8px;
+            padding: 15px;
+            margin-top: 10px;
+            font-size: 0.9em;
+            display: none;
+        }
+
+        .password-requirements h4 {
+            margin: 0 0 10px 0;
+            color: #495057;
+            font-size: 1em;
+        }
+
+        .requirement {
+            display: flex;
+            align-items: center;
+            margin-bottom: 5px;
+            color: #6c757d;
+        }
+
+        .requirement i {
+            margin-right: 8px;
+            width: 16px;
+            position: static;
+        }
+
+        .requirement.valid {
+            color: #28a745;
+        }
+
+        .requirement.invalid {
+            color: #dc3545;
+        }
+
         .btn-primary {
             background: #0d47a1;
             color: white;
@@ -221,6 +258,19 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             border: 1px solid #fecaca;
         }
 
+        .password-toggle {
+            position: absolute;
+            right: 15px;
+            top: 45px;
+            cursor: pointer;
+            color: #666;
+            z-index: 10;
+        }
+
+        .password-toggle:hover {
+            color: #0d47a1;
+        }
+
         @keyframes slideUp {
             from {
                 opacity: 0;
@@ -270,15 +320,32 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                 </div>
             <?php endif; ?>
             
-            <form method="POST" action="">
+            <form method="POST" action="" id="loginForm">
                 <div class="form-group">
                     <label for="email"><i class="fas fa-envelope"></i> Email</label>
                     <input type="email" id="email" name="email" placeholder="Enter your email" required>
                 </div>
                 
                 <div class="form-group">
-                    <label for="password"><i class="fas fa-lock"></i> Password</label>
+                    <label for="password">Password</label>
                     <input type="password" id="password" name="password" placeholder="Enter your password" required>
+                    <i class="fas fa-eye password-toggle" id="toggleIcon" onclick="togglePassword()" ></i>
+                    
+                    <div class="password-requirements" id="passwordRequirements">
+                        <h4>Password Requirements:</h4>
+                        <div class="requirement" id="length-req">
+                            <i class="fas fa-times"></i>
+                            <span>At least 8 characters long</span>
+                        </div>
+                        <div class="requirement" id="uppercase-req">
+                            <i class="fas fa-times"></i>
+                            <span>At least one uppercase letter (A-Z)</span>
+                        </div>
+                        <div class="requirement" id="special-req">
+                            <i class="fas fa-times"></i>
+                            <span>At least one special character (@, #, $)</span>
+                        </div>
+                    </div>
                 </div>
                 
                 <button type="submit" class="btn btn-primary">
@@ -299,5 +366,75 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             </div>
         </div>
     </div>
+
+    <script>
+        function togglePassword() {
+            const passwordInput = document.getElementById('password');
+            const toggleIcon = document.getElementById('toggleIcon');
+            
+            if (passwordInput.type === 'password') {
+                passwordInput.type = 'text';
+                toggleIcon.className = 'fas fa-eye-slash';
+            } else {
+                passwordInput.type = 'password';
+                toggleIcon.className = 'fas fa-eye';
+            }
+        }
+
+        document.addEventListener('DOMContentLoaded', function() {
+            const passwordInput = document.getElementById('password');
+            const passwordRequirements = document.getElementById('passwordRequirements');
+            const lengthReq = document.getElementById('length-req');
+            const uppercaseReq = document.getElementById('uppercase-req');
+            const specialReq = document.getElementById('special-req');
+
+            passwordInput.addEventListener('focus', function() {
+                passwordRequirements.style.display = 'block';
+            });
+
+            passwordInput.addEventListener('blur', function() {
+                setTimeout(() => {
+                    passwordRequirements.style.display = 'none';
+                }, 200);
+            });
+
+            passwordInput.addEventListener('input', function() {
+                const password = this.value;
+                
+                // Check length
+                if (password.length >= 8) {
+                    lengthReq.classList.add('valid');
+                    lengthReq.classList.remove('invalid');
+                    lengthReq.querySelector('i').className = 'fas fa-check';
+                } else {
+                    lengthReq.classList.add('invalid');
+                    lengthReq.classList.remove('valid');
+                    lengthReq.querySelector('i').className = 'fas fa-times';
+                }
+
+                // Check uppercase
+                if (/[A-Z]/.test(password)) {
+                    uppercaseReq.classList.add('valid');
+                    uppercaseReq.classList.remove('invalid');
+                    uppercaseReq.querySelector('i').className = 'fas fa-check';
+                } else {
+                    uppercaseReq.classList.add('invalid');
+                    uppercaseReq.classList.remove('valid');
+                    uppercaseReq.querySelector('i').className = 'fas fa-times';
+                }
+
+                // Check special characters
+                if (/[@#$]/.test(password)) {
+                    specialReq.classList.add('valid');
+                    specialReq.classList.remove('invalid');
+                    specialReq.querySelector('i').className = 'fas fa-check';
+                } else {
+                    specialReq.classList.add('invalid');
+                    specialReq.classList.remove('valid');
+                    specialReq.querySelector('i').className = 'fas fa-times';
+                }
+            });
+        });
+    </script>
 </body>
 </html>
