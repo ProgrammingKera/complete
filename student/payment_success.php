@@ -1,11 +1,20 @@
 <?php
-include_once '../includes/header.php';
+session_start();
 
-// Check if user is student or faculty
 if ($_SESSION['role'] != 'student' && $_SESSION['role'] != 'faculty') {
     header('Location: ../index.php');
     exit();
 }
+
+$receiptNumber = isset($_GET['receipt']) ? $_GET['receipt'] : '';
+$transactionId = isset($_GET['transaction']) ? $_GET['transaction'] : '';
+
+if (empty($receiptNumber) || empty($transactionId)) {
+    header('Location: fines.php');
+    exit();
+}
+
+include_once '../includes/header.php';
 
 $receiptNumber = isset($_GET['receipt']) ? $_GET['receipt'] : '';
 $transactionId = isset($_GET['transaction']) ? $_GET['transaction'] : '';

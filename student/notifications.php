@@ -40,10 +40,10 @@ if ($result) {
 ?>
 
 <div class="container">
-    <h1 class="page-title">My Notifications</h1>
+    <h1 class="page-title" style="margin-bottom: 30px;">My Notifications</h1>
 
-    <div class="card">
-        <div class="card-body">
+    <div class="card" >
+        <div class="card-body" >
             <?php if (count($notifications) > 0): ?>
                 <div class="notification-list">
                     <?php foreach ($notifications as $notification): ?>
@@ -86,6 +86,7 @@ if ($result) {
     display: flex;
     flex-direction: column;
     gap: 15px;
+     max-height: 70vh;
 }
 
 .notification-item {
