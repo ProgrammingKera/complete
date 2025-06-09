@@ -287,9 +287,7 @@ while ($row = $result->fetch_assoc()) {
                                                     <label for="payment_method<?php echo $fine['id']; ?>">Payment Method</label>
                                                     <select id="payment_method<?php echo $fine['id']; ?>" name="payment_method" class="form-control" required>
                                                         <option value="cash">Cash</option>
-                                                        <option value="stripe">Credit Card</option>
-                                                        
-                                                        
+                                                        <option value="stripe">Credit Card </option>
                                                     </select>
                                                 </div>
                                                 
@@ -301,8 +299,8 @@ while ($row = $result->fetch_assoc()) {
                                                 <div class="stripe-payment-section" id="stripeSection<?php echo $fine['id']; ?>" style="display: none;">
                                                     <div class="alert alert-info">
                                                         <i class="fas fa-info-circle"></i>
-                                                        <strong>Stripe Payment Integration</strong><br>
-                                                        To process Stripe payments, you need to set up your Stripe account and configure the payment gateway.
+                                                        <strong>Stripe Payment Processing</strong><br>
+                                                        Click the button below to process payment via Stripe.
                                                     </div>
                                                     
                                                     <button type="button" class="btn btn-success" onclick="processStripePayment(<?php echo $fine['id']; ?>, <?php echo $fine['amount']; ?>)">
@@ -312,7 +310,7 @@ while ($row = $result->fetch_assoc()) {
                                                 
                                                 <div class="form-group text-right">
                                                     <button type="button" class="btn btn-secondary modal-close">Cancel</button>
-                                                    <button type="submit" name="record_payment" class="btn btn-primary">Record Payment</button>
+                                                    <button type="submit" name="record_payment" class="btn btn-primary" id="cashPaymentBtn<?php echo $fine['id']; ?>">Record Cash Payment</button>
                                                 </div>
                                             </form>
                                         </div>
@@ -483,12 +481,15 @@ document.addEventListener('DOMContentLoaded', function() {
     paymentMethodSelects.forEach(select => {
         const fineId = select.id.replace('payment_method', '');
         const stripeSection = document.getElementById('stripeSection' + fineId);
+        const cashPaymentBtn = document.getElementById('cashPaymentBtn' + fineId);
         
         select.addEventListener('change', function() {
             if (this.value === 'stripe') {
                 stripeSection.style.display = 'block';
+                cashPaymentBtn.style.display = 'none';
             } else {
                 stripeSection.style.display = 'none';
+                cashPaymentBtn.style.display = 'inline-block';
             }
         });
     });
@@ -511,13 +512,13 @@ function processStripePayment(fineId, amount) {
     // Show Stripe modal
     document.getElementById('stripePaymentModal').classList.add('active');
     
-    // Initialize Stripe (you need to add your publishable key)
+    // Initialize Stripe
     initializeStripe();
 }
 
 function initializeStripe() {
-    // Note: Replace 'pk_test_...' with your actual Stripe publishable key
-    const stripePublishableKey = 'pk_test_51234567890abcdef'; // Add your Stripe publishable key here
+    // Stripe publishable key (test key)
+    const stripePublishableKey = 'pk_test_51RY1WKHHwJPqmmENo7yyC5m9Hr1AvUQW5Ot2LrQYF90smHgo0GkFALq4j7USSrA7dtN2G7gV0XBwXqsXz03cLSGV00F0hAcU8C';
     
     if (!stripe) {
         stripe = Stripe(stripePublishableKey);

@@ -5,97 +5,6 @@ include_once '../includes/header.php';
 // Check if user is a librarian
 checkUserRole('librarian');
 
-// Process request approval/rejection
-if (isset($_GET['request_id']) && isset($_GET['action'])) {
-    $requestId = (int)$_GET['request_id'];
-    $action = $_GET['action'];
-    
-    // Start transaction
-    $conn->begin_transaction();
-    
-    try {
-        if ($action === 'approve') {
-            // Get request details
-            $stmt = $conn->prepare("
-                SELECT br.*, b.title, b.available_quantity, u.id as user_id, u.name as user_name 
-                FROM book_requests br
-                JOIN books b ON br.book_id = b.id
-                JOIN users u ON br.user_id = u.id
-                WHERE br.id = ?
-            ");
-            $stmt->bind_param("i", $requestId);
-            $stmt->execute();
-            $result = $stmt->get_result();
-            
-            if ($result->num_rows == 1) {
-                $request = $result->fetch_assoc();
-                
-                if ($request['available_quantity'] > 0) {
-                    // Update request status
-                    $stmt = $conn->prepare("UPDATE book_requests SET status = 'approved' WHERE id = ?");
-                    $stmt->bind_param("i", $requestId);
-                    $stmt->execute();
-                    
-                    // Generate return date (14 days from now)
-                    $returnDate = generateDueDate();
-                    
-                    // Create issued book record
-                    $stmt = $conn->prepare("
-                        INSERT INTO issued_books (book_id, user_id, return_date)
-                        VALUES (?, ?, ?)
-                    ");
-                    $stmt->bind_param("iis", $request['book_id'], $request['user_id'], $returnDate);
-                    $stmt->execute();
-                    
-                    // Update book availability
-                    updateBookAvailability($conn, $request['book_id'], 'issue');
-                    
-                    // Send notification to user
-                    $notificationMsg = "Your request for '{$request['title']}' has been approved. Please collect the book from the library.";
-                    sendNotification($conn, $request['user_id'], $notificationMsg);
-                    
-                    $message = "Request approved successfully.";
-                    $messageType = "success";
-                }
-            }
-        } elseif ($action === 'reject') {
-            // Get request details for notification
-            $stmt = $conn->prepare("
-                SELECT br.*, b.title, u.id as user_id
-                FROM book_requests br
-                JOIN books b ON br.book_id = b.id
-                JOIN users u ON br.user_id = u.id
-                WHERE br.id = ?
-            ");
-            $stmt->bind_param("i", $requestId);
-            $stmt->execute();
-            $result = $stmt->get_result();
-            
-            if ($result->num_rows == 1) {
-                $request = $result->fetch_assoc();
-                
-                // Update request status
-                $stmt = $conn->prepare("UPDATE book_requests SET status = 'rejected' WHERE id = ?");
-                $stmt->bind_param("i", $requestId);
-                $stmt->execute();
-                
-                // Send notification to user
-                $notificationMsg = "Your request for '{$request['title']}' has been rejected. Please contact the librarian for more information.";
-                sendNotification($conn, $request['user_id'], $notificationMsg);
-                
-                $message = "Request rejected successfully.";
-                $messageType = "success";
-            }
-        }
-        
-        $conn->commit();
-    } catch (Exception $e) {
-        $conn->rollback();
-        $message = "Error processing request: " . $e->getMessage();
-        $messageType = "danger";
-    }
-}
-
 // Get dashboard statistics
 $totalBooks = getTotalBooks($conn);
 $issuedBooks = getIssuedBooks($conn);
@@ -103,69 +12,25 @@ $totalUsers = getTotalUsers($conn);
 $pendingRequests = getPendingRequests($conn);
 $totalFines = getTotalUnpaidFines($conn);
 
-// Get books due today
-$today = date('Y-m-d');
-$dueTodayBooks = [];
-$sql = "
-    SELECT ib.id, b.title, u.name as user_name, ib.issue_date, ib.return_date
-    FROM issued_books ib
-    JOIN books b ON ib.book_id = b.id
-    JOIN users u ON ib.user_id = u.id
-    WHERE DATE(ib.return_date) = CURRENT_DATE
-    AND ib.status = 'issued'
-    ORDER BY ib.return_date ASC
-";
-$result = $conn->query($sql);
-if ($result) {
-    while ($row = $result->fetch_assoc()) {
-        $dueTodayBooks[] = $row;
-    }
-}
-
-// Get overdue books with correct calculation
-$overdueBooks = [];
-$sql = "
-    SELECT ib.id, b.title, u.name AS user_name, ib.issue_date, ib.return_date,
-           DATEDIFF(CURDATE(), ib.return_date) AS days_overdue,
-           (DATEDIFF(CURDATE(), ib.return_date) * 1.00) AS fine_amount
-    FROM issued_books ib
-    JOIN books b ON ib.book_id = b.id
-    JOIN users u ON ib.user_id = u.id
-    WHERE ib.return_date < CURDATE()
-      AND ib.status = 'issued'
-      AND ib.actual_return_date IS NULL
-    ORDER BY ib.return_date ASC
-";
-
-$result = $conn->query($sql);
-
-if ($result) {
-    while ($row = $result->fetch_assoc()) {
-        $overdueBooks[] = $row;
-    }
-} else {
-    die("Query failed: " . $conn->error);
-}
-
-// Get recent activities
+// Get recent activities (limited to 5 with scroll)
 $recentActivities = [];
 $sql = "
-    (SELECT 'book_issued' as type, b.title, u.name as user_name, ib.issue_date as date
+    (SELECT 'book_issued' as type, b.title as title, u.name as user_name, ib.issue_date as date
     FROM issued_books ib
     JOIN books b ON ib.book_id = b.id
     JOIN users u ON ib.user_id = u.id
     ORDER BY ib.issue_date DESC
-    LIMIT 5)
+    LIMIT 10)
     
     UNION
     
-    (SELECT 'book_returned' as type, b.title, u.name as user_name, ib.actual_return_date as date
+    (SELECT 'book_returned' as type, b.title as title, u.name as user_name, ib.actual_return_date as date
     FROM issued_books ib
     JOIN books b ON ib.book_id = b.id
     JOIN users u ON ib.user_id = u.id
     WHERE ib.status = 'returned'
     ORDER BY ib.actual_return_date DESC
-    LIMIT 5)
+    LIMIT 10)
     
     UNION
     
@@ -176,26 +41,61 @@ $sql = "
     JOIN books b ON ib.book_id = b.id
     JOIN users u ON p.user_id = u.id
     ORDER BY p.payment_date DESC
-    LIMIT 5)
+    LIMIT 10)
     
     ORDER BY date DESC
-    LIMIT 10
+    LIMIT 20
 ";
+
 $result = $conn->query($sql);
 if ($result) {
     while ($row = $result->fetch_assoc()) {
         $recentActivities[] = $row;
     }
 }
+
+// Get books due for return today
+$today = date('Y-m-d');
+$dueTodayBooks = [];
+$sql = "
+    SELECT ib.id, b.title, u.name as user_name, ib.issue_date, ib.return_date
+    FROM issued_books ib
+    JOIN books b ON ib.book_id = b.id
+    JOIN users u ON ib.user_id = u.id
+    WHERE ib.return_date = ? AND ib.status = 'issued'
+    ORDER BY ib.return_date ASC
+";
+$stmt = $conn->prepare($sql);
+$stmt->bind_param("s", $today);
+$stmt->execute();
+$result = $stmt->get_result();
+if ($result) {
+    while ($row = $result->fetch_assoc()) {
+        $dueTodayBooks[] = $row;
+    }
+}
+
+// Get overdue books
+$overdueBooks = [];
+$sql = "
+    SELECT ib.id, b.title, u.name as user_name, ib.issue_date, ib.return_date, 
+           DATEDIFF(CURRENT_DATE, ib.return_date) as days_overdue
+    FROM issued_books ib
+    JOIN books b ON ib.book_id = b.id
+    JOIN users u ON ib.user_id = u.id
+    WHERE ib.return_date < CURRENT_DATE AND ib.status = 'issued'
+    ORDER BY ib.return_date ASC
+    LIMIT 5
+";
+$result = $conn->query($sql);
+if ($result) {
+    while ($row = $result->fetch_assoc()) {
+        $overdueBooks[] = $row;
+    }
+}
 ?>
 
 <h1 class="page-title">Librarian Dashboard</h1>
-
-<?php if (isset($message)): ?>
-    <div class="alert alert-<?php echo $messageType; ?>">
-        <?php echo $message; ?>
-    </div>
-<?php endif; ?>
 
 <!-- Stats Cards -->
 <div class="stats-container">
@@ -241,56 +141,65 @@ if ($result) {
 </div>
 
 <div class="dashboard-row">
-    <!-- Recent Activity -->
+    <!-- Recent Activity with Scroll -->
     <div class="dashboard-col">
         <div class="recent-activity">
             <div class="activity-header">
                 <h3>Recent Activity</h3>
-                <a href="#" class="btn btn-sm btn-primary">View All</a>
+                <span class="activity-count"><?php echo count($recentActivities); ?> activities</span>
             </div>
             <div class="activity-body">
-                <ul class="activity-list">
-                    <?php if (count($recentActivities) > 0): ?>
-                        <?php foreach ($recentActivities as $activity): ?>
-                            <li class="activity-item">
-                                <div class="activity-icon">
-                                    <?php if ($activity['type'] == 'book_issued'): ?>
-                                        <i class="fas fa-hand-holding"></i>
-                                    <?php elseif ($activity['type'] == 'book_returned'): ?>
-                                        <i class="fas fa-undo"></i>
-                                    <?php elseif ($activity['type'] == 'fine_paid'): ?>
-                                        <i class="fas fa-money-bill-wave"></i>
-                                    <?php else: ?>
-                                        <i class="fas fa-info-circle"></i>
-                                    <?php endif; ?>
-                                </div>
-                                <div class="activity-info">
-                                    <h4 class="activity-title">
-                                        <?php 
-                                        if ($activity['type'] == 'book_issued') {
-                                            echo 'Book Issued: ' . htmlspecialchars($activity['title']);
-                                        } elseif ($activity['type'] == 'book_returned') {
-                                            echo 'Book Returned: ' . htmlspecialchars($activity['title']);
-                                        } elseif ($activity['type'] == 'fine_paid') {
-                                            echo htmlspecialchars($activity['title']);
-                                        }
-                                        ?>
-                                    </h4>
-                                    <div class="activity-meta">
-                                        <span class="activity-time"><?php echo date('M d, Y', strtotime($activity['date'])); ?></span>
-                                        <span class="activity-user"><?php echo htmlspecialchars($activity['user_name']); ?></span>
+                <div class="activity-scroll-container">
+                    <ul class="activity-list">
+                        <?php if (count($recentActivities) > 0): ?>
+                            <?php foreach ($recentActivities as $activity): ?>
+                                <li class="activity-item">
+                                    <div class="activity-icon">
+                                        <?php if ($activity['type'] == 'book_issued'): ?>
+                                            <i class="fas fa-hand-holding" style="color: #4caf50;"></i>
+                                        <?php elseif ($activity['type'] == 'book_returned'): ?>
+                                            <i class="fas fa-undo" style="color: #2196f3;"></i>
+                                        <?php elseif ($activity['type'] == 'fine_paid'): ?>
+                                            <i class="fas fa-money-bill-wave" style="color: #ff9800;"></i>
+                                        <?php else: ?>
+                                            <i class="fas fa-info-circle"></i>
+                                        <?php endif; ?>
                                     </div>
+                                    <div class="activity-info">
+                                        <h4 class="activity-title">
+                                            <?php 
+                                            if ($activity['type'] == 'book_issued') {
+                                                echo 'Book Issued: ' . htmlspecialchars($activity['title']);
+                                            } elseif ($activity['type'] == 'book_returned') {
+                                                echo 'Book Returned: ' . htmlspecialchars($activity['title']);
+                                            } elseif ($activity['type'] == 'fine_paid') {
+                                                echo htmlspecialchars($activity['title']);
+                                            }
+                                            ?>
+                                        </h4>
+                                        <div class="activity-meta">
+                                            <span class="activity-time">
+                                                <i class="fas fa-clock"></i>
+                                                <?php echo date('M d, Y H:i', strtotime($activity['date'])); ?>
+                                            </span>
+                                            <span class="activity-user">
+                                                <i class="fas fa-user"></i>
+                                                <?php echo htmlspecialchars($activity['user_name']); ?>
+                                            </span>
+                                        </div>
+                                    </div>
+                                </li>
+                            <?php endforeach; ?>
+                        <?php else: ?>
+                            <li class="activity-item">
+                                <div class="activity-info">
+                                    <h4 class="activity-title">No recent activity</h4>
+                                    <p class="text-muted">Activities will appear here as they happen</p>
                                 </div>
                             </li>
-                        <?php endforeach; ?>
-                    <?php else: ?>
-                        <li class="activity-item">
-                            <div class="activity-info">
-                                <h4 class="activity-title">No recent activity</h4>
-                            </div>
-                        </li>
-                    <?php endif; ?>
-                </ul>
+                        <?php endif; ?>
+                    </ul>
+                </div>
             </div>
         </div>
     </div>
@@ -334,8 +243,8 @@ if ($result) {
                                         <td><?php echo htmlspecialchars($row['user_name']); ?></td>
                                         <td><?php echo date('M d, Y', strtotime($row['request_date'])); ?></td>
                                         <td>
-                                            <a href="?request_id=<?php echo $row['id']; ?>&action=approve" style="margin-bottom:10px"; class="btn btn-sm btn-success">Approve</a>
-                                            <a href="?request_id=<?php echo $row['id']; ?>&action=reject" class="btn btn-sm btn-danger">Reject</a>
+                                            <a href="requests.php?id=<?php echo $row['id']; ?>&action=approve" class="btn btn-sm btn-success">Approve</a>
+                                            <a href="requests.php?id=<?php echo $row['id']; ?>&action=reject" class="btn btn-sm btn-danger">Reject</a>
                                         </td>
                                     </tr>
                                 <?php endwhile; ?>
@@ -349,7 +258,10 @@ if ($result) {
                         </div>
                     <?php endif; ?>
                 <?php else: ?>
-                    <p class="text-center">No pending book requests</p>
+                    <div class="empty-state">
+                        <i class="fas fa-bookmark fa-3x"></i>
+                        <p>No pending book requests</p>
+                    </div>
                 <?php endif; ?>
             </div>
         </div>
@@ -362,6 +274,7 @@ if ($result) {
         <div class="card">
             <div class="card-header">
                 <h3>Books Due Today</h3>
+                <span class="badge badge-warning"><?php echo count($dueTodayBooks); ?></span>
             </div>
             <div class="card-body">
                 <?php if (count($dueTodayBooks) > 0): ?>
@@ -372,7 +285,6 @@ if ($result) {
                                     <th>Book</th>
                                     <th>User</th>
                                     <th>Issue Date</th>
-                                    <th>Due Date</th>
                                     <th>Action</th>
                                 </tr>
                             </thead>
@@ -382,9 +294,10 @@ if ($result) {
                                         <td><?php echo htmlspecialchars($book['title']); ?></td>
                                         <td><?php echo htmlspecialchars($book['user_name']); ?></td>
                                         <td><?php echo date('M d, Y', strtotime($book['issue_date'])); ?></td>
-                                        <td><?php echo date('M d, Y', strtotime($book['return_date'])); ?></td>
                                         <td>
-                                            <a href="process_return.php?id=<?php echo $book['id']; ?>" class="btn btn-sm btn-primary">Process Return</a>
+                                            <a href="returns.php?id=<?php echo $book['id']; ?>" class="btn btn-sm btn-primary">
+                                                <i class="fas fa-undo"></i> Process Return
+                                            </a>
                                         </td>
                                     </tr>
                                 <?php endforeach; ?>
@@ -392,7 +305,10 @@ if ($result) {
                         </table>
                     </div>
                 <?php else: ?>
-                    <p class="text-center">No books due today</p>
+                    <div class="empty-state">
+                        <i class="fas fa-calendar-check fa-3x"></i>
+                        <p>No books due today</p>
+                    </div>
                 <?php endif; ?>
             </div>
         </div>
@@ -403,6 +319,7 @@ if ($result) {
         <div class="card">
             <div class="card-header">
                 <h3>Overdue Books</h3>
+                <span class="badge badge-danger"><?php echo count($overdueBooks); ?></span>
             </div>
             <div class="card-body">
                 <?php if (count($overdueBooks) > 0): ?>
@@ -412,9 +329,7 @@ if ($result) {
                                 <tr>
                                     <th>Book</th>
                                     <th>User</th>
-                                    <th>Due Date</th>
                                     <th>Days Overdue</th>
-                                    <th>Fine Amount</th>
                                     <th>Action</th>
                                 </tr>
                             </thead>
@@ -423,11 +338,13 @@ if ($result) {
                                     <tr>
                                         <td><?php echo htmlspecialchars($book['title']); ?></td>
                                         <td><?php echo htmlspecialchars($book['user_name']); ?></td>
-                                        <td><?php echo date('M d, Y', strtotime($book['return_date'])); ?></td>
-                                        <td class="text-danger"><?php echo $book['days_overdue']; ?> days</td>
-                                        <td class="text-danger">$<?php echo number_format($book['fine_amount'], 2); ?></td>
                                         <td>
-                                            <a href="process_return.php?id=<?php echo $book['id']; ?>" class="btn btn-sm btn-primary">Process Return</a>
+                                            <span class="badge badge-danger"><?php echo $book['days_overdue']; ?> days</span>
+                                        </td>
+                                        <td>
+                                            <a href="returns.php?id=<?php echo $book['id']; ?>" class="btn btn-sm btn-primary">
+                                                <i class="fas fa-undo"></i> Return
+                                            </a>
                                         </td>
                                     </tr>
                                 <?php endforeach; ?>
@@ -435,17 +352,91 @@ if ($result) {
                         </table>
                     </div>
                     
-                    <?php if (count($overdueBooks) > 5): ?>
+                    <?php if (count($overdueBooks) >= 5): ?>
                         <div class="text-center mt-3">
-                            <a href="overdue_books.php" class="btn btn-primary">View All Overdue Books</a>
+                            <a href="returns.php?status=overdue" class="btn btn-primary">View All Overdue Books</a>
                         </div>
                     <?php endif; ?>
                 <?php else: ?>
-                    <p class="text-center">No overdue books</p>
+                    <div class="empty-state">
+                        <i class="fas fa-check-circle fa-3x"></i>
+                        <p>No overdue books</p>
+                    </div>
                 <?php endif; ?>
             </div>
         </div>
     </div>
 </div>
 
-<?php include_once '../includes/footer.php'; ?>
+<style>
+.activity-scroll-container {
+    max-height: 400px;
+    overflow-y: auto;
+    padding-right: 5px;
+}
+
+.activity-scroll-container::-webkit-scrollbar {
+    width: 6px;
+}
+
+.activity-scroll-container::-webkit-scrollbar-track {
+    background: var(--gray-200);
+    border-radius: 3px;
+}
+
+.activity-scroll-container::-webkit-scrollbar-thumb {
+    background: var(--primary-color);
+    border-radius: 3px;
+}
+
+.activity-scroll-container::-webkit-scrollbar-thumb:hover {
+    background: var(--primary-dark);
+}
+
+.activity-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.activity-count {
+    font-size: 0.9em;
+    color: var(--text-light);
+}
+
+.activity-meta {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+    font-size: 0.8em;
+    color: var(--text-light);
+}
+
+.activity-meta span {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+}
+
+.empty-state {
+    text-align: center;
+    padding: 40px 20px;
+    color: var(--text-light);
+}
+
+.empty-state i {
+    margin-bottom: 15px;
+    opacity: 0.5;
+}
+
+.card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+</style>
+
+<?php
+// Include footer
+include_once '../includes/footer.php';
+?>

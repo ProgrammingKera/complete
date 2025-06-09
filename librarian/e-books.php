@@ -231,7 +231,7 @@ while ($row = $result->fetch_assoc()) {
                             <a href="<?php echo htmlspecialchars($ebook['file_path']); ?>" class="btn btn-sm btn-primary" target="_blank">
                                 <i class="fas fa-download"></i> Download
                             </a>
-                            <a href="ebook_details.php?id=<?php echo $ebook['id']; ?>" class="btn btn-sm btn-secondary">
+                            <a href="ebook_details.php?id=<?php echo $ebook['id']; ?>" style="margin-top:10px;" class="btn btn-sm btn-secondary">
                                 <i class="fas fa-info-circle"></i> Details
                             </a>
                             <a href="?delete=<?php echo $ebook['id']; ?>" style="margin-top:10px;" class="btn btn-sm btn-danger" onclick="return confirmDelete('Are you sure you want to delete this e-book?')">

@@ -59,25 +59,44 @@ try {
     // Initialize Stripe
     require_once '../vendor/autoload.php';
     
-    
-    \Stripe\Stripe::setApiKey('pk_test_51RXrGJ4KfG2Zot2yqATlNthP1rmv44p2UxKkM4fgXUrBBzcCJaogNREypEto3QvO9D7dfuY2mqEBgPGX8c8LgfLD00nAS0nnVR'); 
+    // Load environment variables from .env file
+    if (file_exists(__DIR__ . '/../.env')) {
+        $envContent = file_get_contents(__DIR__ . '/../.env');
+        $lines = explode("\n", $envContent);
+        foreach ($lines as $line) {
+            if (strpos($line, '=') !== false && strpos($line, '#') !== 0) {
+                list($key, $value) = explode('=', $line, 2);
+                $key = trim($key);
+                $value = trim($value, " \t\n\r\0\x0B\"'");
+                $_ENV[$key] = $value;
+                putenv("$key=$value");
+            }
+        }
+    }
+
+    // Set Stripe API key from environment variable
+    if (!isset($_ENV['STRIPE_SECRET_KEY']) || empty($_ENV['STRIPE_SECRET_KEY'])) {
+        throw new Exception('Stripe secret key not set in .env file');
+    }
+    \Stripe\Stripe::setApiKey($_ENV['STRIPE_SECRET_KEY']);
     
     // Create a PaymentIntent
     $paymentIntent = \Stripe\PaymentIntent::create([
-        'amount' => $amount,
-        'currency' => $currency,
-        'payment_method' => $paymentMethodId,
-        'confirmation_method' => 'manual',
-        'confirm' => true,
-        'description' => "Library Fine Payment - Fine ID: {$fineId}",
-        'metadata' => [
-            'fine_id' => $fineId,
-            'user_id' => $fine['user_id'],
-            'user_name' => $fine['user_name'],
-            'book_title' => $fine['book_title']
-        ],
-        'receipt_email' => $fine['user_email']
-    ]);
+    'amount' => $amount,
+    'currency' => $currency,
+    'payment_method' => $paymentMethodId,
+    'confirmation_method' => 'manual',
+    'confirm' => true,
+    'return_url' => 'http://localhost:3000/librarian/fines.php', // <-- apna URL lagayen
+    'description' => "Library Fine Payment - Fine ID: {$fineId}",
+    'metadata' => [
+        'fine_id' => $fineId,
+        'user_id' => $fine['user_id'],
+        'user_name' => $fine['user_name'],
+        'book_title' => $fine['book_title']
+    ],
+    'receipt_email' => $fine['user_email']
+]);
     
     if ($paymentIntent->status == 'succeeded') {
         // Payment successful, update database
