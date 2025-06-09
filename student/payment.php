@@ -1,7 +1,6 @@
 <?php
-include_once '../includes/header.php';
+session_start();
 
-// Check if user is student or faculty
 if ($_SESSION['role'] != 'student' && $_SESSION['role'] != 'faculty') {
     header('Location: ../index.php');
     exit();
@@ -10,6 +9,8 @@ if ($_SESSION['role'] != 'student' && $_SESSION['role'] != 'faculty') {
 $userId = $_SESSION['user_id'];
 $message = '';
 $messageType = '';
+
+include_once '../includes/header.php';
 
 // Get fine details if fine_id is provided
 $fine = null;
@@ -35,101 +36,9 @@ if (isset($_GET['fine_id'])) {
     }
 }
 
-// Process payment
-if (isset($_POST['process_payment']) && $fine) {
-    $cardNumber = preg_replace('/\s+/', '', $_POST['card_number']);
-    $cardExpiry = $_POST['card_expiry'];
-    $cardCvc = $_POST['card_cvc'];
-    $cardName = trim($_POST['card_name']);
-    $billingEmail = trim($_POST['billing_email']);
-    
-    // Basic validation
-    $errors = [];
-    
-    if (empty($cardNumber) || strlen($cardNumber) < 13 || strlen($cardNumber) > 19) {
-        $errors[] = "Please enter a valid card number.";
-    }
-    
-    if (empty($cardExpiry) || !preg_match('/^\d{2}\/\d{2}$/', $cardExpiry)) {
-        $errors[] = "Please enter a valid expiry date (MM/YY).";
-    } else {
-        list($month, $year) = explode('/', $cardExpiry);
-        $currentYear = date('y');
-        $currentMonth = date('m');
-        if ($month < 1 || $month > 12 || $year < $currentYear || ($year == $currentYear && $month < $currentMonth)) {
-            $errors[] = "Card has expired or invalid expiry date.";
-        }
-    }
-    
-    if (empty($cardCvc) || strlen($cardCvc) < 3 || strlen($cardCvc) > 4) {
-        $errors[] = "Please enter a valid CVC.";
-    }
-    
-    if (empty($cardName)) {
-        $errors[] = "Please enter the cardholder name.";
-    }
-    
-    if (empty($billingEmail) || !filter_var($billingEmail, FILTER_VALIDATE_EMAIL)) {
-        $errors[] = "Please enter a valid email address.";
-    }
-    
-    if (!empty($errors)) {
-        $message = implode('<br>', $errors);
-        $messageType = "danger";
-    } else {
-        // Simulate payment processing with Stripe
-        $transactionId = 'stripe_' . date('YmdHis') . rand(1000, 9999);
-        $receiptNumber = 'RCP' . date('Ymd') . str_pad($fine['id'], 4, '0', STR_PAD_LEFT);
-        
-        // Start transaction
-        $conn->begin_transaction();
-        
-        try {
-            // Update fine status
-            $stmt = $conn->prepare("UPDATE fines SET status = 'paid' WHERE id = ?");
-            $stmt->bind_param("i", $fine['id']);
-            $stmt->execute();
-            
-            // Record payment
-            $paymentDetails = json_encode([
-                'card_last_four' => substr($cardNumber, -4),
-                'card_type' => 'Credit Card',
-                'billing_email' => $billingEmail,
-                'cardholder_name' => $cardName,
-                'payment_processor' => 'Stripe'
-            ]);
-            
-            $stmt = $conn->prepare("
-                INSERT INTO payments (fine_id, user_id, amount, payment_method, receipt_number, transaction_id, payment_details) 
-                VALUES (?, ?, ?, 'stripe', ?, ?, ?)
-            ");
-            $stmt->bind_param("iidsss", $fine['id'], $userId, $fine['amount'], $receiptNumber, $transactionId, $paymentDetails);
-            $stmt->execute();
-            
-            // Send notification
-            $notificationMessage = "Fine payment of $" . number_format($fine['amount'], 2) . " processed successfully via Stripe. Transaction ID: " . $transactionId;
-            sendNotification($conn, $userId, $notificationMessage);
-            
-            // Commit transaction
-            $conn->commit();
-            
-            // Set success message and redirect after showing it
-            $message = "Payment processed successfully! Redirecting to receipt...";
-            $messageType = "success";
-            $redirectUrl = "payment_success.php?receipt=$receiptNumber&transaction=$transactionId";
-            
-        } catch (Exception $e) {
-            // Rollback transaction
-            $conn->rollback();
-            $message = "Payment processing failed. Please try again. Error: " . $e->getMessage();
-            $messageType = "danger";
-        }
-    }
-}
-
 // Update payments table structure if needed
 $sql = "ALTER TABLE payments 
-        ADD COLUMN IF NOT EXISTS transaction_id VARCHAR(50),
+        ADD COLUMN IF NOT EXISTS transaction_id VARCHAR(100),
         ADD COLUMN IF NOT EXISTS payment_details TEXT";
 $conn->query($sql);
 ?>
@@ -150,14 +59,6 @@ $conn->query($sql);
             <i class="fas fa-<?php echo $messageType == 'success' ? 'check-circle' : 'exclamation-circle'; ?>"></i>
             <?php echo $message; ?>
         </div>
-        
-        <?php if ($messageType == 'success' && isset($redirectUrl)): ?>
-            <script>
-                setTimeout(function() {
-                    window.location.href = '<?php echo $redirectUrl; ?>';
-                }, 2000);
-            </script>
-        <?php endif; ?>
     <?php endif; ?>
 
     <?php if ($fine): ?>
@@ -231,7 +132,7 @@ $conn->query($sql);
                 </div>
             </div>
 
-            <!-- Payment Form -->
+            <!-- Stripe Payment Form -->
             <div class="stripe-payment-card">
                 <div class="payment-form-header">
                     <h3><i class="fas fa-credit-card"></i> Payment Information</h3>
@@ -243,47 +144,16 @@ $conn->query($sql);
                     </div>
                 </div>
                 <div class="payment-form-body">
-                    <form action="" method="POST" id="payment-form">
-                        <!-- Card Number -->
+                    <form id="payment-form">
+                        <!-- Stripe Elements will be mounted here -->
                         <div class="form-group">
-                            <label for="card-number">
-                                <i class="fas fa-credit-card"></i> Card Number
+                            <label for="card-element">
+                                <i class="fas fa-credit-card"></i> Card Information
                             </label>
-                            <div class="card-input-container">
-                                <input type="text" id="card-number" name="card_number" 
-                                       placeholder="1234 5678 9012 3456" maxlength="19" 
-                                       class="form-control card-input" required>
-                                <div class="card-type-icon" id="card-type-icon"></div>
+                            <div id="card-element" class="stripe-element">
+                                <!-- Stripe Elements will create form elements here -->
                             </div>
-                        </div>
-                        
-                        <div class="form-row">
-                            <div class="form-col">
-                                <div class="form-group">
-                                    <label for="card-expiry">
-                                        <i class="fas fa-calendar"></i> Expiry Date
-                                    </label>
-                                    <input type="text" id="card-expiry" name="card_expiry" 
-                                           placeholder="MM/YY" maxlength="5" class="form-control" required>
-                                </div>
-                            </div>
-                            <div class="form-col">
-                                <div class="form-group">
-                                    <label for="card-cvc">
-                                        <i class="fas fa-lock"></i> CVC
-                                    </label>
-                                    <input type="text" id="card-cvc" name="card_cvc" 
-                                           placeholder="123" maxlength="4" class="form-control" required>
-                                </div>
-                            </div>
-                        </div>
-                        
-                        <div class="form-group">
-                            <label for="card-name">
-                                <i class="fas fa-user"></i> Cardholder Name
-                            </label>
-                            <input type="text" id="card-name" name="card_name" 
-                                   placeholder="John Doe" class="form-control" required>
+                            <div id="card-errors" class="card-errors"></div>
                         </div>
                         
                         <div class="form-group">
@@ -294,8 +164,6 @@ $conn->query($sql);
                                    placeholder="john@example.com" class="form-control" 
                                    value="<?php echo htmlspecialchars($_SESSION['email']); ?>" required>
                         </div>
-                        
-                        <div id="card-errors" class="card-errors"></div>
                         
                         <!-- Processing Overlay -->
                         <div id="processing-overlay" class="processing-overlay">
@@ -324,7 +192,7 @@ $conn->query($sql);
                             <a href="fines.php" class="btn btn-secondary">
                                 <i class="fas fa-arrow-left"></i> Cancel
                             </a>
-                            <button type="submit" name="process_payment" id="submit-payment" class="btn btn-primary btn-lg">
+                            <button type="submit" id="submit-payment" class="btn btn-primary btn-lg">
                                 <i class="fas fa-lock"></i> Pay $<?php echo number_format($fine['amount'], 2); ?>
                             </button>
                         </div>
@@ -575,39 +443,22 @@ $conn->query($sql);
     box-shadow: 0 0 0 4px rgba(13, 71, 161, 0.1);
 }
 
-.form-row {
-    display: flex;
-    gap: 20px;
-}
-
-.form-col {
-    flex: 1;
-}
-
-.card-input-container {
-    position: relative;
-}
-
-.card-type-icon {
-    position: absolute;
-    right: 18px;
-    top: 50%;
-    transform: translateY(-50%);
-    font-size: 1.8em;
+.stripe-element {
+    padding: 15px 18px;
+    border: 2px solid var(--gray-300);
+    border-radius: 10px;
+    background: var(--white);
     transition: var(--transition);
 }
 
-.card-input.valid {
-    border-color: var(--success-color);
-}
-
-.card-input.invalid {
-    border-color: var(--danger-color);
+.stripe-element:focus-within {
+    border-color: var(--primary-color);
+    box-shadow: 0 0 0 4px rgba(13, 71, 161, 0.1);
 }
 
 .card-errors {
     color: var(--danger-color);
-    margin-bottom: 20px;
+    margin-top: 10px;
     padding: 15px;
     background: rgba(220, 53, 69, 0.1);
     border-radius: var(--border-radius);
@@ -766,11 +617,6 @@ $conn->query($sql);
         width: 100%;
     }
     
-    .form-row {
-        flex-direction: column;
-        gap: 0;
-    }
-    
     .accepted-cards {
         justify-content: center;
     }
@@ -801,163 +647,56 @@ $conn->query($sql);
 }
 </style>
 
+<!-- Include Stripe.js -->
+<script src="https://js.stripe.com/v3/"></script>
+
 <script>
 document.addEventListener('DOMContentLoaded', function() {
-    const cardNumberInput = document.getElementById('card-number');
-    const cardExpiryInput = document.getElementById('card-expiry');
-    const cardCvcInput = document.getElementById('card-cvc');
-    const cardNameInput = document.getElementById('card-name');
-    const billingEmailInput = document.getElementById('billing-email');
-    const cardTypeIcon = document.getElementById('card-type-icon');
-    const cardErrors = document.getElementById('card-errors');
-    const submitButton = document.getElementById('submit-payment');
+    // Initialize Stripe
+    const stripe = Stripe('pk_test_51RY1WKHHwJPqmmENo7yyC5m9Hr1AvUQW5Ot2LrQYF90smHgo0GkFALq4j7USSrA7dtN2G7gV0XBwXqsXz03cLSGV00F0hAcU8C');
+    const elements = stripe.elements();
+    
+    // Create card element
+    const cardElement = elements.create('card', {
+        style: {
+            base: {
+                fontSize: '16px',
+                color: '#424770',
+                '::placeholder': {
+                    color: '#aab7c4',
+                },
+            },
+            invalid: {
+                color: '#9e2146',
+            },
+        },
+    });
+    
+    cardElement.mount('#card-element');
+    
+    // Handle real-time validation errors from the card Element
+    cardElement.on('change', function(event) {
+        const displayError = document.getElementById('card-errors');
+        if (event.error) {
+            displayError.textContent = event.error.message;
+            displayError.style.display = 'block';
+        } else {
+            displayError.style.display = 'none';
+        }
+    });
+    
+    // Handle form submission
     const form = document.getElementById('payment-form');
+    const submitButton = document.getElementById('submit-payment');
     const processingOverlay = document.getElementById('processing-overlay');
     
-    // Card number formatting and validation
-    cardNumberInput.addEventListener('input', function(e) {
-        let value = e.target.value.replace(/\s+/g, '').replace(/[^0-9]/gi, '');
-        let formattedValue = value.match(/.{1,4}/g)?.join(' ') || value;
+    form.addEventListener('submit', async function(event) {
+        event.preventDefault();
         
-        if (formattedValue.length <= 19) {
-            e.target.value = formattedValue;
-        }
-        
-        // Detect card type
-        detectCardType(value);
-        validateForm();
-    });
-    
-    // Expiry date formatting
-    cardExpiryInput.addEventListener('input', function(e) {
-        let value = e.target.value.replace(/\D/g, '');
-        if (value.length >= 2) {
-            value = value.substring(0, 2) + '/' + value.substring(2, 4);
-        }
-        e.target.value = value;
-        validateForm();
-    });
-    
-    // CVC validation
-    cardCvcInput.addEventListener('input', function(e) {
-        let value = e.target.value.replace(/\D/g, '');
-        e.target.value = value;
-        validateForm();
-    });
-    
-    // Name validation
-    cardNameInput.addEventListener('input', validateForm);
-    
-    // Email validation
-    billingEmailInput.addEventListener('input', validateForm);
-    
-    function detectCardType(number) {
-        const cardTypes = {
-            visa: /^4/,
-            mastercard: /^5[1-5]/,
-            amex: /^3[47]/,
-            discover: /^6(?:011|5)/
-        };
-        
-        let detectedType = '';
-        for (let type in cardTypes) {
-            if (cardTypes[type].test(number)) {
-                detectedType = type;
-                break;
-            }
-        }
-        
-        if (detectedType) {
-            cardTypeIcon.innerHTML = `<i class="fab fa-cc-${detectedType}"></i>`;
-            cardTypeIcon.style.color = '#28a745';
-        } else {
-            cardTypeIcon.innerHTML = '';
-        }
-    }
-    
-    function validateForm() {
-        const cardNumber = cardNumberInput.value.replace(/\s/g, '');
-        const cardExpiry = cardExpiryInput.value;
-        const cardCvc = cardCvcInput.value;
-        const cardName = cardNameInput.value.trim();
-        const billingEmail = billingEmailInput.value.trim();
-        
-        let isValid = true;
-        
-        // Validate card number
-        if (cardNumber.length < 13 || cardNumber.length > 19 || !luhnCheck(cardNumber)) {
-            isValid = false;
-        }
-        
-        // Validate expiry
-        if (!cardExpiry.match(/^\d{2}\/\d{2}$/)) {
-            isValid = false;
-        } else {
-            const [month, year] = cardExpiry.split('/');
-            const currentDate = new Date();
-            const currentYear = currentDate.getFullYear() % 100;
-            const currentMonth = currentDate.getMonth() + 1;
-            
-            if (parseInt(month) < 1 || parseInt(month) > 12 ||
-                parseInt(year) < currentYear || 
-                (parseInt(year) === currentYear && parseInt(month) < currentMonth)) {
-                isValid = false;
-            }
-        }
-        
-        // Validate CVC
-        if (cardCvc.length < 3 || cardCvc.length > 4) {
-            isValid = false;
-        }
-        
-        // Validate name
-        if (cardName.length < 2) {
-            isValid = false;
-        }
-        
-        // Validate email
-        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-        if (!emailRegex.test(billingEmail)) {
-            isValid = false;
-        }
-        
-        submitButton.disabled = !isValid;
-    }
-    
-    function luhnCheck(number) {
-        let sum = 0;
-        let alternate = false;
-        
-        for (let i = number.length - 1; i >= 0; i--) {
-            let n = parseInt(number.charAt(i), 10);
-            
-            if (alternate) {
-                n *= 2;
-                if (n > 9) {
-                    n = (n % 10) + 1;
-                }
-            }
-            
-            sum += n;
-            alternate = !alternate;
-        }
-        
-        return (sum % 10) === 0;
-    }
-    
-    function showError(message) {
-        cardErrors.textContent = message;
-        cardErrors.style.display = 'block';
-    }
-    
-    function hideError() {
-        cardErrors.style.display = 'none';
-    }
-    
-    function showProcessingSteps() {
+        submitButton.disabled = true;
         processingOverlay.style.display = 'flex';
         
-        // Simulate processing steps
+        // Show processing steps
         setTimeout(() => {
             document.getElementById('step-1').classList.remove('active');
             document.getElementById('step-2').classList.add('active');
@@ -967,27 +706,57 @@ document.addEventListener('DOMContentLoaded', function() {
             document.getElementById('step-2').classList.remove('active');
             document.getElementById('step-3').classList.add('active');
         }, 2000);
-    }
-    
-    // Form submission
-   form.addEventListener('submit', function(e) {
-    const cardNumber = cardNumberInput.value.replace(/\s/g, '');
-    if (!luhnCheck(cardNumber)) {
-        e.preventDefault();
-        showError('Please enter a valid card number.');
-        return;
-    }
         
-        hideError();
-        
-        // Show processing overlay
-        showProcessingSteps();
-        
-        
+        try {
+            // Create payment method
+            const {error, paymentMethod} = await stripe.createPaymentMethod({
+                type: 'card',
+                card: cardElement,
+                billing_details: {
+                    email: document.getElementById('billing-email').value,
+                },
+            });
+            
+            if (error) {
+                throw new Error(error.message);
+            }
+            
+            // Send payment to server
+            const response = await fetch('process_stripe_payment.php', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    payment_method_id: paymentMethod.id,
+                    amount: Math.round(<?php echo $fine['amount']; ?> * 100), // Convert to cents
+                    fine_id: <?php echo $fine['id']; ?>,
+                    currency: 'usd'
+                }),
+            });
+            
+            const result = await response.json();
+            
+            if (result.success) {
+                // Payment successful - redirect to success page
+                window.location.href = `payment_success.php?receipt=${result.receipt_number}&transaction=${result.transaction_id}`;
+            } else {
+                throw new Error(result.error || 'Payment failed');
+            }
+            
+        } catch (error) {
+            const displayError = document.getElementById('card-errors');
+            displayError.textContent = error.message;
+            displayError.style.display = 'block';
+            
+            submitButton.disabled = false;
+            processingOverlay.style.display = 'none';
+            
+            // Reset processing steps
+            document.querySelectorAll('.step').forEach(step => step.classList.remove('active'));
+            document.getElementById('step-1').classList.add('active');
+        }
     });
-    
-    // Initial validation
-    validateForm();
 });
 </script>
 

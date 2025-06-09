@@ -16,17 +16,9 @@ if (empty($receiptNumber) || empty($transactionId)) {
 
 include_once '../includes/header.php';
 
-$receiptNumber = isset($_GET['receipt']) ? $_GET['receipt'] : '';
-$transactionId = isset($_GET['transaction']) ? $_GET['transaction'] : '';
-
-if (empty($receiptNumber) || empty($transactionId)) {
-    header('Location: fines.php');
-    exit();
-}
-
 // Get payment details
 $stmt = $conn->prepare("
-    SELECT p.*, f.amount, f.reason, b.title, b.author, u.name as user_name, u.email
+    SELECT p.*, f.amount as fine_amount, f.reason, b.title, b.author, u.name as user_name, u.email
     FROM payments p
     JOIN fines f ON p.fine_id = f.id
     JOIN issued_books ib ON f.issued_book_id = ib.id
@@ -65,7 +57,7 @@ $paymentDetails = json_decode($payment['payment_details'], true);
                     <h2>Library Management System</h2>
                 </div>
                 <div class="receipt-number">
-                    <h3>Receipt #<?php echo $receiptNumber; ?></h3>
+                    <h3>Receipt #<?php echo htmlspecialchars($receiptNumber); ?></h3>
                     <p><?php echo date('F d, Y H:i:s', strtotime($payment['payment_date'])); ?></p>
                 </div>
             </div>
@@ -76,7 +68,7 @@ $paymentDetails = json_decode($payment['payment_details'], true);
                     <div class="detail-grid">
                         <div class="detail-item">
                             <span class="label">Transaction ID:</span>
-                            <span class="value"><?php echo $transactionId; ?></span>
+                            <span class="value"><?php echo htmlspecialchars($transactionId); ?></span>
                         </div>
                         <div class="detail-item">
                             <span class="label">Payment Method:</span>
@@ -94,6 +86,12 @@ $paymentDetails = json_decode($payment['payment_details'], true);
                                 <i class="fas fa-check-circle"></i> PAID
                             </span>
                         </div>
+                        <?php if ($paymentDetails && isset($paymentDetails['created'])): ?>
+                        <div class="detail-item">
+                            <span class="label">Processed At:</span>
+                            <span class="value"><?php echo date('M d, Y H:i:s', $paymentDetails['created']); ?></span>
+                        </div>
+                        <?php endif; ?>
                     </div>
                 </div>
                 
@@ -126,6 +124,10 @@ $paymentDetails = json_decode($payment['payment_details'], true);
                             <span class="label">Fine Reason:</span>
                             <span class="value"><?php echo htmlspecialchars($payment['reason']); ?></span>
                         </div>
+                        <div class="detail-item">
+                            <span class="label">Original Fine Amount:</span>
+                            <span class="value">$<?php echo number_format($payment['fine_amount'], 2); ?></span>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -139,6 +141,11 @@ $paymentDetails = json_decode($payment['payment_details'], true);
                     This receipt serves as proof of payment. Your transaction has been processed securely 
                     through Stripe's industry-leading payment platform. Please keep this for your records.
                 </p>
+                <?php if ($paymentDetails && isset($paymentDetails['stripe_payment_intent_id'])): ?>
+                <p class="stripe-reference">
+                    <small>Stripe Payment Intent: <?php echo htmlspecialchars($paymentDetails['stripe_payment_intent_id']); ?></small>
+                </p>
+                <?php endif; ?>
             </div>
         </div>
         
@@ -146,9 +153,7 @@ $paymentDetails = json_decode($payment['payment_details'], true);
             <button onclick="printReceipt()" class="btn btn-secondary">
                 <i class="fas fa-print"></i> Print Receipt
             </button>
-            <button onclick="downloadReceipt()" class="btn btn-primary">
-                <i class="fas fa-download"></i> Download PDF
-            </button>
+            
             <a href="fines.php" class="btn btn-success">
                 <i class="fas fa-list"></i> View All Fines
             </a>
@@ -351,10 +356,17 @@ $paymentDetails = json_decode($payment['payment_details'], true);
 }
 
 .footer-note {
-    margin: 0;
+    margin: 0 0 10px 0;
     font-size: 0.9em;
     color: var(--text-light);
     line-height: 1.6;
+}
+
+.stripe-reference {
+    margin: 0;
+    font-size: 0.8em;
+    color: var(--text-light);
+    opacity: 0.7;
 }
 
 .action-buttons {

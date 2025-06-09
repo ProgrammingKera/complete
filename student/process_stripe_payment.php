@@ -3,8 +3,12 @@ session_start();
 include_once '../includes/config.php';
 include_once '../includes/functions.php';
 
-// Check if user is a librarian
-checkUserRole('librarian');
+// Check if user is student or faculty
+if ($_SESSION['role'] != 'student' && $_SESSION['role'] != 'faculty') {
+    http_response_code(403);
+    echo json_encode(['success' => false, 'error' => 'Unauthorized access']);
+    exit();
+}
 
 // Set content type to JSON
 header('Content-Type: application/json');
@@ -21,6 +25,7 @@ $paymentMethodId = $input['payment_method_id'] ?? '';
 $amount = $input['amount'] ?? 0; // Amount in cents
 $fineId = $input['fine_id'] ?? 0;
 $currency = $input['currency'] ?? 'usd';
+$userId = $_SESSION['user_id'];
 
 // Validate input
 if (empty($paymentMethodId) || $amount <= 0 || $fineId <= 0) {
@@ -28,16 +33,16 @@ if (empty($paymentMethodId) || $amount <= 0 || $fineId <= 0) {
     exit;
 }
 
-// Get fine details
+// Get fine details and verify ownership
 $stmt = $conn->prepare("
     SELECT f.*, u.id as user_id, u.name as user_name, u.email as user_email, b.title as book_title
     FROM fines f
     JOIN issued_books ib ON f.issued_book_id = ib.id
     JOIN books b ON ib.book_id = b.id
     JOIN users u ON f.user_id = u.id
-    WHERE f.id = ? AND f.status = 'pending'
+    WHERE f.id = ? AND f.user_id = ? AND f.status = 'pending'
 ");
-$stmt->bind_param("i", $fineId);
+$stmt->bind_param("ii", $fineId, $userId);
 $stmt->execute();
 $result = $stmt->get_result();
 
@@ -59,26 +64,9 @@ try {
     // Initialize Stripe
     require_once '../vendor/autoload.php';
     
-    // Load environment variables from .env file
-    if (file_exists(__DIR__ . '/../.env')) {
-        $envContent = file_get_contents(__DIR__ . '/../.env');
-        $lines = explode("\n", $envContent);
-        foreach ($lines as $line) {
-            if (strpos($line, '=') !== false && strpos($line, '#') !== 0) {
-                list($key, $value) = explode('=', $line, 2);
-                $key = trim($key);
-                $value = trim($value, " \t\n\r\0\x0B\"'");
-                $_ENV[$key] = $value;
-                putenv("$key=$value");
-            }
-        }
-    }
-
-    // Set Stripe API key from environment variable
-    if (!isset($_ENV['STRIPE_SECRET_KEY']) || empty($_ENV['STRIPE_SECRET_KEY'])) {
-        throw new Exception('Stripe secret key not set in .env file');
-    }
-    \Stripe\Stripe::setApiKey($_ENV['STRIPE_SECRET_KEY']);
+    // Use test secret key
+    $stripeSecretKey = 'sk_test_51RY1WKHHwJPqmmENvSkoklqn2nUt7s5mi1oElbfDsPVlz6roDYkmJi3KTZQwMVSKbum0mXFl8i8tMsN3IIyWDbQW00qlAqgbzS';
+    \Stripe\Stripe::setApiKey($stripeSecretKey);
     
     // Create a PaymentIntent
     $paymentIntent = \Stripe\PaymentIntent::create([
@@ -87,7 +75,7 @@ try {
     'payment_method' => $paymentMethodId,
     'confirmation_method' => 'manual',
     'confirm' => true,
-    'return_url' => 'http://localhost:3000/librarian/fines.php', 
+    'return_url' => 'http://localhost/complete/student/payment_success.php', 
     'description' => "Library Fine Payment - Fine ID: {$fineId}",
     'metadata' => [
         'fine_id' => $fineId,
@@ -133,7 +121,12 @@ try {
 
             $conn->commit();
 
-            echo json_encode(['success' => true, 'message' => 'Payment successful']);
+            echo json_encode([
+    'success' => true,
+    'message' => 'Payment successful',
+    'receipt_number' => $receiptNumber,
+    'transaction_id' => $transactionId
+]);
         } catch (Exception $e) {
             $conn->rollback();
             echo json_encode(['success' => false, 'error' => 'Database error: ' . $e->getMessage()]);
