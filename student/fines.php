@@ -58,11 +58,7 @@ $totalFines = $totalPending + $totalPaid;
                 <i class="fas fa-exclamation-triangle"></i>
             </div>
             <div class="stat-info">
-<<<<<<< HEAD
                 <div class="stat-number">PKR <?php echo number_format($totalPending, 2); ?></div>
-=======
-                <div class="stat-number">$<?php echo number_format($totalPending, 2); ?></div>
->>>>>>> 7c39a1d92c5527ecd186ad9dfb2b75bcfdcd349c
                 <div class="stat-label">Pending Fines</div>
             </div>
         </div>
@@ -72,11 +68,7 @@ $totalFines = $totalPending + $totalPaid;
                 <i class="fas fa-check-circle"></i>
             </div>
             <div class="stat-info">
-<<<<<<< HEAD
                 <div class="stat-number">PKR <?php echo number_format($totalPaid, 2); ?></div>
-=======
-                <div class="stat-number">$<?php echo number_format($totalPaid, 2); ?></div>
->>>>>>> 7c39a1d92c5527ecd186ad9dfb2b75bcfdcd349c
                 <div class="stat-label">Paid Fines</div>
             </div>
         </div>
@@ -86,11 +78,7 @@ $totalFines = $totalPending + $totalPaid;
                 <i class="fas fa-calculator"></i>
             </div>
             <div class="stat-info">
-<<<<<<< HEAD
                 <div class="stat-number">PKR <?php echo number_format($totalFines, 2); ?></div>
-=======
-                <div class="stat-number">$<?php echo number_format($totalFines, 2); ?></div>
->>>>>>> 7c39a1d92c5527ecd186ad9dfb2b75bcfdcd349c
                 <div class="stat-label">Total Fines</div>
             </div>
         </div>
@@ -177,11 +165,7 @@ $totalFines = $totalPending + $totalPaid;
         <div class="card-header">
             <h3><i class="fas fa-check-circle text-success"></i> Payment History</h3>
             <div class="card-header-actions">
-<<<<<<< HEAD
                 <span class="badge badge-success">Total Paid: PKR <?php echo number_format($totalPaid, 2); ?></span>
-=======
-                <span class="badge badge-success">Total Paid: $<?php echo number_format($totalPaid, 2); ?></span>
->>>>>>> 7c39a1d92c5527ecd186ad9dfb2b75bcfdcd349c
             </div>
         </div>
         <div class="card-body">

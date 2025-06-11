@@ -110,11 +110,7 @@ $conn->query($sql);
                         <div class="total-section">
                             <div class="total-amount">
                                 <span class="total-label">Total Amount:</span>
-<<<<<<< HEAD
                                 <span class="amount">PKR <?php echo number_format($fine['amount'], 2); ?></span>
-=======
-                                <span class="amount">$<?php echo number_format($fine['amount'], 2); ?></span>
->>>>>>> 7c39a1d92c5527ecd186ad9dfb2b75bcfdcd349c
                             </div>
                         </div>
                     </div>
@@ -197,11 +193,7 @@ $conn->query($sql);
                                 <i class="fas fa-arrow-left"></i> Cancel
                             </a>
                             <button type="submit" id="submit-payment" class="btn btn-primary btn-lg">
-<<<<<<< HEAD
                                 <i class="fas fa-lock"></i> Pay PKR<?php echo number_format($fine['amount'], 2); ?>
-=======
-                                <i class="fas fa-lock"></i> Pay $<?php echo number_format($fine['amount'], 2); ?>
->>>>>>> 7c39a1d92c5527ecd186ad9dfb2b75bcfdcd349c
                             </button>
                         </div>
                     </form>
@@ -661,11 +653,7 @@ $conn->query($sql);
 <script>
 document.addEventListener('DOMContentLoaded', function() {
     // Initialize Stripe
-<<<<<<< HEAD
     const stripe = Stripe('pk_test_51RXrGJ4KfG2Zot2yqATlNthP1rmv44p2UxKkM4fgXUrBBzcCJaogNREypEto3QvO9D7dfuY2mqEBgPGX8c8LgfLD00nAS0nnVR');
-=======
-    const stripe = Stripe('pk_test_51RY1WKHHwJPqmmENo7yyC5m9Hr1AvUQW5Ot2LrQYF90smHgo0GkFALq4j7USSrA7dtN2G7gV0XBwXqsXz03cLSGV00F0hAcU8C');
->>>>>>> 7c39a1d92c5527ecd186ad9dfb2b75bcfdcd349c
     const elements = stripe.elements();
     
     // Create card element
@@ -743,11 +731,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     payment_method_id: paymentMethod.id,
                     amount: Math.round(<?php echo $fine['amount']; ?> * 100), // Convert to cents
                     fine_id: <?php echo $fine['id']; ?>,
-<<<<<<< HEAD
                     currency: 'pkr'
-=======
-                    currency: 'usd'
->>>>>>> 7c39a1d92c5527ecd186ad9dfb2b75bcfdcd349c
                 }),
             });
             

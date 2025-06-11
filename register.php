@@ -4,6 +4,7 @@ include 'includes/config.php';
 
 $message = '';
 $messageType = '';
+$generatedId = '';
 
 // Password validation function
 function validatePassword($password) {
@@ -60,19 +61,22 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                 $message = "Email already registered";
                 $messageType = "danger";
             } else {
+                // Generate unique ID
+                $uniqueId = generateUniqueId($conn, $role);
+                
                 // Hash password
                 $hashedPassword = password_hash($password, PASSWORD_DEFAULT);
                 
                 // Insert new user
-                $stmt = $conn->prepare("INSERT INTO users (name, email, password, role, department, phone) VALUES (?, ?, ?, ?, ?, ?)");
-                $stmt->bind_param("ssssss", $name, $email, $hashedPassword, $role, $department, $phone);
+                $stmt = $conn->prepare("INSERT INTO users (unique_id, name, email, password, role, department, phone) VALUES (?, ?, ?, ?, ?, ?, ?)");
+                $stmt->bind_param("sssssss", $uniqueId, $name, $email, $hashedPassword, $role, $department, $phone);
                 
                 if ($stmt->execute()) {
-                    $message = "Registration successful! You can now login.";
+                    $generatedId = $uniqueId;
+                    $message = "Registration successful! Your unique ID is: <strong>$uniqueId</strong><br>Please save this ID for login. You can now login using either your email or unique ID.";
                     $messageType = "success";
                     
-                    // Redirect to login page after 2 seconds
-                    header("refresh:2;url=index.php");
+                    // Don't redirect immediately, show the ID first
                 } else {
                     $message = "Error registering user: " . $stmt->error;
                     $messageType = "danger";
@@ -95,11 +99,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
     <style>
         .register-page {
              min-height: 100vh;
-<<<<<<< HEAD
-            background: linear-gradient(rgba(0, 0, 0, 0.5), rgba(0, 0, 0, 0.5)),
-=======
             background: linear-gradient(rgba(13, 71, 161, 0.9), rgba(21, 101, 192, 0.9)),
->>>>>>> 7c39a1d92c5527ecd186ad9dfb2b75bcfdcd349c
                         url('https://images.pexels.com/photos/2041540/pexels-photo-2041540.jpeg');
             background-size: cover;
             background-position: center;
@@ -291,6 +291,45 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             border: 1px solid #a7f3d0;
         }
 
+        .unique-id-display {
+            background: #e3f2fd;
+            border: 2px solid #2196f3;
+            border-radius: 10px;
+            padding: 20px;
+            margin: 20px 0;
+            text-align: center;
+        }
+
+        .unique-id-display h3 {
+            color: #1976d2;
+            margin: 0 0 10px 0;
+        }
+
+        .unique-id-display .id-value {
+            font-size: 2em;
+            font-weight: bold;
+            color: #0d47a1;
+            background: white;
+            padding: 15px;
+            border-radius: 8px;
+            margin: 10px 0;
+            letter-spacing: 2px;
+        }
+
+        .unique-id-display .copy-btn {
+            background: #2196f3;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            margin: 10px;
+        }
+
+        .unique-id-display .copy-btn:hover {
+            background: #1976d2;
+        }
+
         @keyframes slideUp {
             from {
                 opacity: 0;
@@ -332,8 +371,23 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                     <i class="fas fa-<?php echo $messageType == 'success' ? 'check-circle' : 'exclamation-circle'; ?>"></i>
                     <?php echo $message; ?>
                 </div>
+                
+                <?php if ($messageType == 'success' && !empty($generatedId)): ?>
+                    <div class="unique-id-display">
+                        <h3><i class="fas fa-id-card"></i> Your Unique ID</h3>
+                        <div class="id-value" id="uniqueId"><?php echo $generatedId; ?></div>
+                        <button type="button" class="copy-btn" onclick="copyToClipboard()">
+                            <i class="fas fa-copy"></i> Copy ID
+                        </button>
+                        <p><strong>Important:</strong> Save this ID safely. You can use either your email or this unique ID to login.</p>
+                        <a href="index.php" class="btn-primary" style="display: inline-block; margin-top: 15px; text-decoration: none;">
+                            <i class="fas fa-sign-in-alt"></i> Go to Login
+                        </a>
+                    </div>
+                <?php endif; ?>
             <?php endif; ?>
             
+            <?php if ($messageType != 'success'): ?>
             <form method="POST" action="" id="registerForm">
                 <div class="form-row">
                     <div class="form-col">
@@ -412,10 +466,26 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                     <i class="fas fa-sign-in-alt"></i> Already have an account? Login here
                 </a>
             </form>
+            <?php endif; ?>
         </div>
     </div>
 
     <script>
+        function copyToClipboard() {
+            const uniqueId = document.getElementById('uniqueId').textContent;
+            navigator.clipboard.writeText(uniqueId).then(function() {
+                const btn = document.querySelector('.copy-btn');
+                const originalText = btn.innerHTML;
+                btn.innerHTML = '<i class="fas fa-check"></i> Copied!';
+                btn.style.background = '#4caf50';
+                
+                setTimeout(function() {
+                    btn.innerHTML = originalText;
+                    btn.style.background = '#2196f3';
+                }, 2000);
+            });
+        }
+
         document.addEventListener('DOMContentLoaded', function() {
             const passwordInput = document.getElementById('password');
             const confirmPasswordInput = document.getElementById('confirm_password');
@@ -425,91 +495,100 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             const specialReq = document.getElementById('special-req');
             const passwordRequirements = document.getElementById('passwordRequirements');
 
-            // Show password requirements when password field is focused
-            passwordInput.addEventListener('focus', function() {
-                passwordRequirements.classList.add('show');
-            });
-
-            // Hide password requirements when password field loses focus (with delay)
-            passwordInput.addEventListener('blur', function() {
-                setTimeout(() => {
-                    if (document.activeElement !== confirmPasswordInput) {
-                        passwordRequirements.classList.remove('show');
-                    }
-                }, 200);
-            });
-
-            function validatePassword() {
-                const password = passwordInput.value;
-                let isValid = true;
-
-                // Check length
-                if (password.length >= 8) {
-                    lengthReq.classList.add('valid');
-                    lengthReq.classList.remove('invalid');
-                    lengthReq.querySelector('i').className = 'fas fa-check';
-                } else {
-                    lengthReq.classList.add('invalid');
-                    lengthReq.classList.remove('valid');
-                    lengthReq.querySelector('i').className = 'fas fa-times';
-                    isValid = false;
-                }
-
-                // Check uppercase
-                if (/[A-Z]/.test(password)) {
-                    uppercaseReq.classList.add('valid');
-                    uppercaseReq.classList.remove('invalid');
-                    uppercaseReq.querySelector('i').className = 'fas fa-check';
-                } else {
-                    uppercaseReq.classList.add('invalid');
-                    uppercaseReq.classList.remove('valid');
-                    uppercaseReq.querySelector('i').className = 'fas fa-times';
-                    isValid = false;
-                }
-
-                // Check special characters
-                if (/[@#$]/.test(password)) {
-                    specialReq.classList.add('valid');
-                    specialReq.classList.remove('invalid');
-                    specialReq.querySelector('i').className = 'fas fa-check';
-                } else {
-                    specialReq.classList.add('invalid');
-                    specialReq.classList.remove('valid');
-                    specialReq.querySelector('i').className = 'fas fa-times';
-                    isValid = false;
-                }
-
-                // Check if passwords match
-                const passwordsMatch = password === confirmPasswordInput.value && password.length > 0;
-
-                // Enable/disable submit button
-                submitBtn.disabled = !(isValid && passwordsMatch);
-
-                return isValid;
-            }
-
-            passwordInput.addEventListener('input', function() {
-                validatePassword();
-                // Show requirements when typing
-                if (this.value.length > 0) {
+            if (passwordInput) {
+                // Show password requirements when password field is focused
+                passwordInput.addEventListener('focus', function() {
                     passwordRequirements.classList.add('show');
-                }
-            });
+                });
 
-            confirmPasswordInput.addEventListener('input', validatePassword);
+                // Hide password requirements when password field loses focus (with delay)
+                passwordInput.addEventListener('blur', function() {
+                    setTimeout(() => {
+                        if (document.activeElement !== confirmPasswordInput) {
+                            passwordRequirements.classList.remove('show');
+                        }
+                    }, 200);
+                });
 
-            // Form submission validation
-            document.getElementById('registerForm').addEventListener('submit', function(e) {
-                if (!validatePassword()) {
-                    e.preventDefault();
-                    alert('Please ensure your password meets all requirements.');
+                function validatePassword() {
+                    const password = passwordInput.value;
+                    let isValid = true;
+
+                    // Check length
+                    if (password.length >= 8) {
+                        lengthReq.classList.add('valid');
+                        lengthReq.classList.remove('invalid');
+                        lengthReq.querySelector('i').className = 'fas fa-check';
+                    } else {
+                        lengthReq.classList.add('invalid');
+                        lengthReq.classList.remove('valid');
+                        lengthReq.querySelector('i').className = 'fas fa-times';
+                        isValid = false;
+                    }
+
+                    // Check uppercase
+                    if (/[A-Z]/.test(password)) {
+                        uppercaseReq.classList.add('valid');
+                        uppercaseReq.classList.remove('invalid');
+                        uppercaseReq.querySelector('i').className = 'fas fa-check';
+                    } else {
+                        uppercaseReq.classList.add('invalid');
+                        uppercaseReq.classList.remove('valid');
+                        uppercaseReq.querySelector('i').className = 'fas fa-times';
+                        isValid = false;
+                    }
+
+                    // Check special characters
+                    if (/[@#$]/.test(password)) {
+                        specialReq.classList.add('valid');
+                        specialReq.classList.remove('invalid');
+                        specialReq.querySelector('i').className = 'fas fa-check';
+                    } else {
+                        specialReq.classList.add('invalid');
+                        specialReq.classList.remove('valid');
+                        specialReq.querySelector('i').className = 'fas fa-times';
+                        isValid = false;
+                    }
+
+                    // Check if passwords match
+                    const passwordsMatch = password === confirmPasswordInput.value && password.length > 0;
+
+                    // Enable/disable submit button
+                    if (submitBtn) {
+                        submitBtn.disabled = !(isValid && passwordsMatch);
+                    }
+
+                    return isValid;
                 }
 
-                if (passwordInput.value !== confirmPasswordInput.value) {
-                    e.preventDefault();
-                    alert('Passwords do not match.');
+                passwordInput.addEventListener('input', function() {
+                    validatePassword();
+                    // Show requirements when typing
+                    if (this.value.length > 0) {
+                        passwordRequirements.classList.add('show');
+                    }
+                });
+
+                if (confirmPasswordInput) {
+                    confirmPasswordInput.addEventListener('input', validatePassword);
                 }
-            });
+
+                // Form submission validation
+                const form = document.getElementById('registerForm');
+                if (form) {
+                    form.addEventListener('submit', function(e) {
+                        if (!validatePassword()) {
+                            e.preventDefault();
+                            alert('Please ensure your password meets all requirements.');
+                        }
+
+                        if (passwordInput.value !== confirmPasswordInput.value) {
+                            e.preventDefault();
+                            alert('Passwords do not match.');
+                        }
+                    });
+                }
+            }
         });
     </script>
 </body>

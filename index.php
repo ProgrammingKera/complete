@@ -15,16 +15,16 @@ if (isset($_SESSION['user_id'])) {
 
 // Process login form
 if ($_SERVER['REQUEST_METHOD'] == 'POST') {
-    $email = trim($_POST['email']);
+    $login_identifier = trim($_POST['login_identifier']); // Can be email or unique_id
     $password = $_POST['password'];
     
     // Validate input
-    if (empty($email) || empty($password)) {
-        $error = "Please enter both email and password";
+    if (empty($login_identifier) || empty($password)) {
+        $error = "Please enter both login identifier and password";
     } else {
-        // Prepare SQL statement
-        $stmt = $conn->prepare("SELECT * FROM users WHERE email = ?");
-        $stmt->bind_param("s", $email);
+        // Prepare SQL statement to check both email and unique_id
+        $stmt = $conn->prepare("SELECT * FROM users WHERE email = ? OR unique_id = ?");
+        $stmt->bind_param("ss", $login_identifier, $login_identifier);
         $stmt->execute();
         $result = $stmt->get_result();
         
@@ -36,6 +36,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                 $_SESSION['name'] = $user['name'];
                 $_SESSION['email'] = $user['email'];
                 $_SESSION['role'] = $user['role'];
+                $_SESSION['unique_id'] = $user['unique_id'];
                 
                 // Redirect based on role
                 if ($user['role'] == 'librarian') {
@@ -66,11 +67,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
     <style>
         .login-page {
             min-height: 100vh;
-<<<<<<< HEAD
-            background: linear-gradient(rgba(0, 0, 0, 0.5), rgba(0, 0, 0, 0.5)),
-=======
             background: linear-gradient(rgba(13, 71, 161, 0.9), rgba(21, 101, 192, 0.9)),
->>>>>>> 7c39a1d92c5527ecd186ad9dfb2b75bcfdcd349c
                         url('https://images.pexels.com/photos/590493/pexels-photo-590493.jpeg');
             background-size: cover;
             background-position: center;
@@ -165,6 +162,31 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             right: 15px;
             top: 45px;
             color: #666;
+        }
+
+        .login-help {
+            background: #e3f2fd;
+            border: 1px solid #2196f3;
+            border-radius: 8px;
+            padding: 15px;
+            margin-bottom: 20px;
+            font-size: 0.9em;
+        }
+
+        .login-help h4 {
+            margin: 0 0 10px 0;
+            color: #1976d2;
+            font-size: 1em;
+        }
+
+        .login-help ul {
+            margin: 0;
+            padding-left: 20px;
+            color: #0d47a1;
+        }
+
+        .login-help li {
+            margin-bottom: 5px;
         }
 
         .password-requirements {
@@ -318,6 +340,8 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
         </div>
         
         <div class="login-form">
+            
+
             <?php if (isset($error)): ?>
                 <div class="alert alert-danger">
                     <i class="fas fa-exclamation-circle"></i> <?php echo $error; ?>
@@ -326,8 +350,8 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             
             <form method="POST" action="" id="loginForm">
                 <div class="form-group">
-                    <label for="email"><i class="fas fa-envelope"></i> Email</label>
-                    <input type="email" id="email" name="email" placeholder="Enter your email" required>
+                    <label for="login_identifier"><i class="fas fa-user"></i> Email or Unique ID</label>
+                    <input type="text" id="login_identifier" name="login_identifier" placeholder="Enter your email or unique ID (e.g., STU12345)" required>
                 </div>
                 
                 <div class="form-group">

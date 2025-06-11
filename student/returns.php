@@ -149,26 +149,12 @@ $overdueBooks = array_filter($currentBooks, function($book) {
                                 <td>
                                     <?php 
                                     if ($book['fine_amount'] > 0) {
-<<<<<<< HEAD
-        $fineClass = $book['fine_status'] == 'pending' ? 'text-danger' : 'text-success';
-        echo '<span class="' . $fineClass . '">PKR' . number_format($book['fine_amount'], 2) . '</span><br>';
-        echo '<small class="text-muted">(' . ucfirst($book['fine_status']) . ')</small>';
-    } else if ($book['current_status'] == 'overdue') {
-        // Calculate fine on the fly if overdue and no fine record
-        $daysOverdue = max(0, (int)$book['days_overdue']);
-        $fineAmount = $daysOverdue * 100; // 100 PKR per day
-        echo '<span class="text-danger">PKR' . number_format($fineAmount, 2) . ' (not yet charged)</span>';
-    } else {
-        echo '<span class="text-muted">No fine</span>';
-    }
-=======
-                                        $fineClass = $book['fine_status'] == 'pending' ? 'text-danger' : 'text-success';
+                                        $fineClass = ($book['fine_status'] == 'pending') ? 'text-danger' : 'text-success';
                                         echo '<span class="' . $fineClass . '">$' . number_format($book['fine_amount'], 2) . '</span><br>';
                                         echo '<small class="text-muted">(' . ucfirst($book['fine_status']) . ')</small>';
                                     } else {
                                         echo '<span class="text-muted">No fine</span>';
                                     }
->>>>>>> 7c39a1d92c5527ecd186ad9dfb2b75bcfdcd349c
                                     ?>
                                 </td>
                             </tr>

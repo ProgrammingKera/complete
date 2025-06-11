@@ -116,6 +116,53 @@ if (isset($_POST['change_password'])) {
     border-color: #007bff;
     outline: none;
 }
+
+.unique-id-display {
+    background: #e3f2fd;
+    border: 2px solid #2196f3;
+    border-radius: 10px;
+    padding: 20px;
+    margin-bottom: 20px;
+    text-align: center;
+}
+
+.unique-id-display h3 {
+    color: #1976d2;
+    margin: 0 0 10px 0;
+}
+
+.unique-id-display .id-value {
+    font-size: 1.5em;
+    font-weight: bold;
+    color: #0d47a1;
+    background: white;
+    padding: 10px;
+    border-radius: 8px;
+    margin: 10px 0;
+    letter-spacing: 2px;
+    font-family: monospace;
+}
+
+.unique-id-display .copy-btn {
+    background: #2196f3;
+    color: white;
+    border: none;
+    padding: 8px 16px;
+    border-radius: 5px;
+    cursor: pointer;
+    margin: 5px;
+    font-size: 0.9em;
+}
+
+.unique-id-display .copy-btn:hover {
+    background: #1976d2;
+}
+
+.unique-id-display p {
+    margin: 10px 0 0 0;
+    color: #666;
+    font-size: 0.9em;
+}
 </style>
 <div class="container">
     <h1 class="page-title">My Profile</h1>
@@ -126,6 +173,16 @@ if (isset($_POST['change_password'])) {
             <?php echo $message; ?>
         </div>
     <?php endif; ?>
+
+    <!-- Display Unique ID -->
+    <div class="unique-id-display">
+        <h3><i class="fas fa-id-card"></i> Your Unique ID</h3>
+        <div class="id-value" id="uniqueId"><?php echo htmlspecialchars($user['unique_id']); ?></div>
+        <button type="button" class="copy-btn" onclick="copyToClipboard()">
+            <i class="fas fa-copy"></i> Copy ID
+        </button>
+        <p>Use this ID or your email to login to the system</p>
+    </div>
 
     <div class="dashboard-row">
         <!-- Profile Information -->
@@ -169,6 +226,16 @@ if (isset($_POST['change_password'])) {
                         <div class="form-group">
                             <label for="address">Address</label>
                             <textarea id="address" name="address" rows="3"><?php echo htmlspecialchars($user['address']); ?></textarea>
+                        </div>
+
+                        <div class="form-group">
+                            <label>Role</label>
+                            <input type="text" value="<?php echo ucfirst($user['role']); ?>" readonly style="background-color: #f5f5f5;">
+                        </div>
+
+                        <div class="form-group">
+                            <label>Account Created</label>
+                            <input type="text" value="<?php echo date('F j, Y', strtotime($user['created_at'])); ?>" readonly style="background-color: #f5f5f5;">
                         </div>
 
                         <div class="form-group text-right">
@@ -216,5 +283,22 @@ if (isset($_POST['change_password'])) {
         </div>
     </div>
 </div>
+
+<script>
+function copyToClipboard() {
+    const uniqueId = document.getElementById('uniqueId').textContent;
+    navigator.clipboard.writeText(uniqueId).then(function() {
+        const btn = document.querySelector('.copy-btn');
+        const originalText = btn.innerHTML;
+        btn.innerHTML = '<i class="fas fa-check"></i> Copied!';
+        btn.style.background = '#4caf50';
+        
+        setTimeout(function() {
+            btn.innerHTML = originalText;
+            btn.style.background = '#2196f3';
+        }, 2000);
+    });
+}
+</script>
 
 <?php include_once '../includes/footer.php'; ?>

@@ -102,11 +102,7 @@ if ($result) {
                 <i class="fas fa-money-bill-wave"></i>
             </div>
             <div class="stat-info">
-<<<<<<< HEAD
                 <div class="stat-number">PKR <?php echo number_format($pendingFines, 2); ?></div>
-=======
-                <div class="stat-number">$<?php echo number_format($pendingFines, 2); ?></div>
->>>>>>> 7c39a1d92c5527ecd186ad9dfb2b75bcfdcd349c
                 <div class="stat-label">Pending Fines</div>
             </div>
         </div>

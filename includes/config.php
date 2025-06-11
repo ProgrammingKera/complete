@@ -22,9 +22,10 @@ if ($conn->query($sql) !== TRUE) {
 // Select the database
 $conn->select_db($dbname);
 
-// Create Users table
+// Create Users table with unique_id field
 $sql = "CREATE TABLE IF NOT EXISTS users (
     id INT(11) NOT NULL AUTO_INCREMENT PRIMARY KEY,
+    unique_id VARCHAR(20) UNIQUE,
     name VARCHAR(100) NOT NULL,
     email VARCHAR(100) NOT NULL UNIQUE,
     password VARCHAR(255) NOT NULL,
@@ -37,6 +38,10 @@ $sql = "CREATE TABLE IF NOT EXISTS users (
 if ($conn->query($sql) !== TRUE) {
     die("Error creating users table: " . $conn->error);
 }
+
+// Add unique_id column if it doesn't exist
+$sql = "ALTER TABLE users ADD COLUMN IF NOT EXISTS unique_id VARCHAR(20) UNIQUE AFTER id";
+$conn->query($sql);
 
 // Create Books table
 $sql = "CREATE TABLE IF NOT EXISTS books (
@@ -154,6 +159,35 @@ if ($conn->query($sql) !== TRUE) {
     die("Error creating notifications table: " . $conn->error);
 }
 
+// Function to generate unique ID
+function generateUniqueId($conn, $role) {
+    $prefix = '';
+    switch($role) {
+        case 'student':
+            $prefix = 'STU';
+            break;
+        case 'faculty':
+            $prefix = 'FAC';
+            break;
+        case 'librarian':
+            $prefix = 'LIB';
+            break;
+    }
+    
+    do {
+        $randomNumber = str_pad(rand(1, 99999), 5, '0', STR_PAD_LEFT);
+        $uniqueId = $prefix . $randomNumber;
+        
+        // Check if this ID already exists
+        $stmt = $conn->prepare("SELECT id FROM users WHERE unique_id = ?");
+        $stmt->bind_param("s", $uniqueId);
+        $stmt->execute();
+        $result = $stmt->get_result();
+    } while ($result->num_rows > 0);
+    
+    return $uniqueId;
+}
+
 // Check if default librarian exists, if not create one
 $stmt = $conn->prepare("SELECT * FROM users WHERE email = 'admin@library.com' AND role = 'librarian'");
 $stmt->execute();
@@ -163,15 +197,12 @@ if ($result->num_rows == 0) {
     // Create default librarian account
     $name = "Admin Librarian";
     $email = "admin@library.com";
-<<<<<<< HEAD
-    $password = password_hash("password123", PASSWORD_DEFAULT); 
-=======
-    $password = password_hash("password123", PASSWORD_DEFAULT); // Default password
->>>>>>> 7c39a1d92c5527ecd186ad9dfb2b75bcfdcd349c
+    $password = password_hash("password123", PASSWORD_DEFAULT);
     $role = "librarian";
+    $uniqueId = generateUniqueId($conn, $role);
     
-    $stmt = $conn->prepare("INSERT INTO users (name, email, password, role) VALUES (?, ?, ?, ?)");
-    $stmt->bind_param("ssss", $name, $email, $password, $role);
+    $stmt = $conn->prepare("INSERT INTO users (unique_id, name, email, password, role) VALUES (?, ?, ?, ?, ?)");
+    $stmt->bind_param("sssss", $uniqueId, $name, $email, $password, $role);
     
     if (!$stmt->execute()) {
         die("Error creating default librarian: " . $stmt->error);

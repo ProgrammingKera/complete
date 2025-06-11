@@ -34,22 +34,25 @@ if (isset($_POST['add_user'])) {
             $message = "A user with this email already exists.";
             $messageType = "danger";
         } else {
+            // Generate unique ID
+            $uniqueId = generateUniqueId($conn, $role);
+            
             // Hash password
             $hashedPassword = password_hash($password, PASSWORD_DEFAULT);
             
             // Insert user
             $stmt = $conn->prepare("
-                INSERT INTO users (name, email, password, role, department, phone, address)
-                VALUES (?, ?, ?, ?, ?, ?, ?)
+                INSERT INTO users (unique_id, name, email, password, role, department, phone, address)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
             ");
             
             $stmt->bind_param(
-                "sssssss",
-                $name, $email, $hashedPassword, $role, $department, $phone, $address
+                "ssssssss",
+                $uniqueId, $name, $email, $hashedPassword, $role, $department, $phone, $address
             );
             
             if ($stmt->execute()) {
-                $message = "User added successfully.";
+                $message = "User added successfully. Unique ID: <strong>$uniqueId</strong>";
                 $messageType = "success";
             } else {
                 $message = "Error adding user: " . $stmt->error;
@@ -100,12 +103,13 @@ $params = [];
 $types = "";
 
 if (!empty($search)) {
-    $sql .= " AND (name LIKE ? OR email LIKE ? OR department LIKE ?)";
+    $sql .= " AND (name LIKE ? OR email LIKE ? OR unique_id LIKE ? OR department LIKE ?)";
     $searchParam = "%$search%";
     $params[] = $searchParam;
     $params[] = $searchParam;
     $params[] = $searchParam;
-    $types .= "sss";
+    $params[] = $searchParam;
+    $types .= "ssss";
 }
 
 if (!empty($role)) {
@@ -168,6 +172,7 @@ while ($row = $result->fetch_assoc()) {
     <table class="table table-striped">
         <thead>
             <tr>
+                <th>Unique ID</th>
                 <th>Name</th>
                 <th>Email</th>
                 <th>Role</th>
@@ -181,6 +186,9 @@ while ($row = $result->fetch_assoc()) {
             <?php if (count($users) > 0): ?>
                 <?php foreach ($users as $user): ?>
                     <tr>
+                        <td>
+                            <span class="unique-id-badge"><?php echo htmlspecialchars($user['unique_id']); ?></span>
+                        </td>
                         <td><?php echo htmlspecialchars($user['name']); ?></td>
                         <td><?php echo htmlspecialchars($user['email']); ?></td>
                         <td>
@@ -218,7 +226,7 @@ while ($row = $result->fetch_assoc()) {
                 <?php endforeach; ?>
             <?php else: ?>
                 <tr>
-                    <td colspan="7" class="text-center">No users found.</td>
+                    <td colspan="8" class="text-center">No users found.</td>
                 </tr>
             <?php endif; ?>
         </tbody>
@@ -288,6 +296,18 @@ while ($row = $result->fetch_assoc()) {
                     <textarea id="address" name="address" class="form-control" rows="3"></textarea>
                 </div>
                 
+                <div class="unique-id-info">
+                    <div class="alert alert-info">
+                        <i class="fas fa-info-circle"></i>
+                        <strong>Note:</strong> A unique ID will be automatically generated based on the selected role:
+                        <ul style="margin: 10px 0 0 20px;">
+                            <li>Students: STU##### (e.g., STU12345)</li>
+                            <li>Faculty: FAC##### (e.g., FAC12345)</li>
+                            <li>Librarians: LIB##### (e.g., LIB12345)</li>
+                        </ul>
+                    </div>
+                </div>
+                
                 <div class="form-group text-right">
                     <button type="button" class="btn btn-secondary modal-close">Cancel</button>
                     <button type="submit" name="add_user" class="btn btn-primary">Add User</button>
@@ -296,6 +316,39 @@ while ($row = $result->fetch_assoc()) {
         </div>
     </div>
 </div>
+
+<style>
+.unique-id-badge {
+    background: #e3f2fd;
+    color: #1976d2;
+    padding: 4px 8px;
+    border-radius: 4px;
+    font-weight: 600;
+    font-family: monospace;
+    font-size: 0.9em;
+}
+
+.unique-id-info {
+    margin-top: 15px;
+}
+
+.alert-info {
+    background-color: #e3f2fd;
+    color: #1976d2;
+    border: 1px solid #bbdefb;
+    padding: 15px;
+    border-radius: 8px;
+}
+
+.alert-info ul {
+    margin: 10px 0 0 20px;
+    padding: 0;
+}
+
+.alert-info li {
+    margin-bottom: 5px;
+}
+</style>
 
 <?php
 // Include footer
