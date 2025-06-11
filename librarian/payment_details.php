@@ -71,12 +71,20 @@ $payment = $result->fetch_assoc();
                             
                             <div class="info-item">
                                 <label>Fine Amount:</label>
+<<<<<<< HEAD
                                 <span>Rs<?php echo number_format($payment['fine_amount'], 2); ?></span>
+=======
+                                <span>$<?php echo number_format($payment['fine_amount'], 2); ?></span>
+>>>>>>> 7c39a1d92c5527ecd186ad9dfb2b75bcfdcd349c
                             </div>
                             
                             <div class="info-item">
                                 <label>Amount Paid:</label>
+<<<<<<< HEAD
                                 <span>Rs <?php echo number_format($payment['amount'], 2); ?></span>
+=======
+                                <span>$<?php echo number_format($payment['amount'], 2); ?></span>
+>>>>>>> 7c39a1d92c5527ecd186ad9dfb2b75bcfdcd349c
                             </div>
                             
                             <div class="info-item">

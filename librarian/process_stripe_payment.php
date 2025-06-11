@@ -105,7 +105,11 @@ try {
         try {
             // Create payment record with transaction ID and payment details
             $receiptNumber = 'STRIPE_' . $paymentIntent->id;
+<<<<<<< HEAD
             $paymentAmount = $amount / 100; // Convert back to pkr
+=======
+            $paymentAmount = $amount / 100; // Convert back to dollars
+>>>>>>> 7c39a1d92c5527ecd186ad9dfb2b75bcfdcd349c
             $transactionId = $paymentIntent->id;
             
             // Prepare payment details
@@ -150,7 +154,11 @@ try {
     // Too many requests made to the API too quickly
     echo json_encode(['success' => false, 'error' => 'Rate limit exceeded']);
     
+<<<<<<< HEAD
 } catch (\Stripe\Exception\RequestException $e) {
+=======
+} catch (\Stripe\Exception\InvalidRequestException $e) {
+>>>>>>> 7c39a1d92c5527ecd186ad9dfb2b75bcfdcd349c
     // Invalid parameters were supplied to Stripe's API
     echo json_encode(['success' => false, 'error' => 'Invalid request']);
     
@@ -163,7 +171,13 @@ try {
     echo json_encode(['success' => false, 'error' => 'Network error']);
     
 } catch (\Stripe\Exception\ApiErrorException $e) {
+<<<<<<< HEAD
     echo json_encode(['success' => false, 'error' => 'Payment processing error: ' . $e->getMessage()]);
+=======
+    // Generic error
+    echo json_encode(['success' => false, 'error' => 'Payment processing error']);
+    
+>>>>>>> 7c39a1d92c5527ecd186ad9dfb2b75bcfdcd349c
 } catch (Exception $e) {
     // Something else happened
     echo json_encode(['success' => false, 'error' => 'Unexpected error: ' . $e->getMessage()]);

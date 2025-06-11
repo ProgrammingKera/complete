@@ -96,7 +96,11 @@ $stmt->execute();
 $result = $stmt->get_result();
 
 while ($row = $result->fetch_assoc()) {
+<<<<<<< HEAD
     $fineAmount = $row['days_overdue'] * 100.00; 
+=======
+    $fineAmount = $row['days_overdue'] * 1.00; // $1 per day
+>>>>>>> 7c39a1d92c5527ecd186ad9dfb2b75bcfdcd349c
     $reason = "Late return of book '{$row['title']}'";
     $insertFine = $conn->prepare("
         INSERT INTO fines (issued_book_id, user_id, amount, reason, status)
@@ -183,9 +187,15 @@ while ($row = $result->fetch_assoc()) {
             // Calculate outstanding amount
             $outstanding = $totalFines - $totalPaid;
             ?>
+<<<<<<< HEAD
             <span class="badge badge-primary">Total Fines: PKR <?php echo number_format($totalFines, 2); ?></span>
             <span class="badge badge-success">Total Collected: PKR <?php echo number_format($totalPaid, 2); ?></span>
             <span class="badge badge-danger">Outstanding: PKR <?php echo number_format($outstanding, 2); ?></span>
+=======
+            <span class="badge badge-primary">Total Fines: $<?php echo number_format($totalFines, 2); ?></span>
+            <span class="badge badge-success">Total Collected: $<?php echo number_format($totalPaid, 2); ?></span>
+            <span class="badge badge-danger">Outstanding: $<?php echo number_format($outstanding, 2); ?></span>
+>>>>>>> 7c39a1d92c5527ecd186ad9dfb2b75bcfdcd349c
         </div>
     </div>
     
@@ -249,7 +259,11 @@ while ($row = $result->fetch_assoc()) {
                             }
                             ?>
                         </td>
+<<<<<<< HEAD
                         <td>PKR <?php echo number_format($fine['amount'], 2); ?></td>
+=======
+                        <td>$<?php echo number_format($fine['amount'], 2); ?></td>
+>>>>>>> 7c39a1d92c5527ecd186ad9dfb2b75bcfdcd349c
                         <td>
                             <?php if ($fine['status'] == 'pending'): ?>
                                 <span class="badge badge-warning">Pending</span>
@@ -271,7 +285,11 @@ while ($row = $result->fetch_assoc()) {
                                             <button class="modal-close">&times;</button>
                                         </div>
                                         <div class="modal-body">
+<<<<<<< HEAD
                                             <p>Recording payment for fine of <strong>PKR <?php echo number_format($fine['amount'], 2); ?></strong>
+=======
+                                            <p>Recording payment for fine of <strong>$<?php echo number_format($fine['amount'], 2); ?></strong>
+>>>>>>> 7c39a1d92c5527ecd186ad9dfb2b75bcfdcd349c
                                                 issued to <strong><?php echo htmlspecialchars($fine['user_name']); ?></strong>
                                                 for the book <strong><?php echo htmlspecialchars($fine['book_title']); ?></strong>.</p>
                                             
@@ -279,7 +297,11 @@ while ($row = $result->fetch_assoc()) {
                                                 <input type="hidden" name="fine_id" value="<?php echo $fine['id']; ?>">
                                                 
                                                 <div class="form-group">
+<<<<<<< HEAD
                                                     <label for="amount<?php echo $fine['id']; ?>">Payment Amount (PKR)</label>
+=======
+                                                    <label for="amount<?php echo $fine['id']; ?>">Payment Amount ($)</label>
+>>>>>>> 7c39a1d92c5527ecd186ad9dfb2b75bcfdcd349c
                                                     <input type="number" id="amount<?php echo $fine['id']; ?>" name="amount" class="form-control" step="0.01" min="0.01" max="<?php echo $fine['amount']; ?>" value="<?php echo $fine['amount']; ?>" required>
                                                 </div>
                                                 
@@ -507,7 +529,11 @@ function processStripePayment(fineId, amount) {
     currentAmount = amount;
     
     document.getElementById('stripeFineId').textContent = '#' + fineId;
+<<<<<<< HEAD
     document.getElementById('stripeAmount').textContent = 'Rs ' + amount.toFixed(2);
+=======
+    document.getElementById('stripeAmount').textContent = '$' + amount.toFixed(2);
+>>>>>>> 7c39a1d92c5527ecd186ad9dfb2b75bcfdcd349c
     
     // Show Stripe modal
     document.getElementById('stripePaymentModal').classList.add('active');
@@ -518,7 +544,11 @@ function processStripePayment(fineId, amount) {
 
 function initializeStripe() {
     // Stripe publishable key (test key)
+<<<<<<< HEAD
     const stripePublishableKey = 'pk_test_51RXrGJ4KfG2Zot2yqATlNthP1rmv44p2UxKkM4fgXUrBBzcCJaogNREypEto3QvO9D7dfuY2mqEBgPGX8c8LgfLD00nAS0nnVR';
+=======
+    const stripePublishableKey = 'pk_test_51RY1WKHHwJPqmmENo7yyC5m9Hr1AvUQW5Ot2LrQYF90smHgo0GkFALq4j7USSrA7dtN2G7gV0XBwXqsXz03cLSGV00F0hAcU8C';
+>>>>>>> 7c39a1d92c5527ecd186ad9dfb2b75bcfdcd349c
     
     if (!stripe) {
         stripe = Stripe(stripePublishableKey);
@@ -581,7 +611,11 @@ async function handleStripePayment() {
                 payment_method_id: paymentMethod.id,
                 amount: Math.round(currentAmount * 100), // Convert to cents
                 fine_id: currentFineId,
+<<<<<<< HEAD
                 currency: 'pkr'
+=======
+                currency: 'usd'
+>>>>>>> 7c39a1d92c5527ecd186ad9dfb2b75bcfdcd349c
             }),
         });
         

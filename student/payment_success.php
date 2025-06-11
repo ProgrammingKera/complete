@@ -78,7 +78,11 @@ $paymentDetails = json_decode($payment['payment_details'], true);
                         </div>
                         <div class="detail-item">
                             <span class="label">Amount Paid:</span>
+<<<<<<< HEAD
                             <span class="value amount">PKR <?php echo number_format($payment['amount'], 2); ?></span>
+=======
+                            <span class="value amount">$<?php echo number_format($payment['amount'], 2); ?></span>
+>>>>>>> 7c39a1d92c5527ecd186ad9dfb2b75bcfdcd349c
                         </div>
                         <div class="detail-item">
                             <span class="label">Payment Status:</span>
@@ -126,7 +130,11 @@ $paymentDetails = json_decode($payment['payment_details'], true);
                         </div>
                         <div class="detail-item">
                             <span class="label">Original Fine Amount:</span>
+<<<<<<< HEAD
                             <span class="value">PKR <?php echo number_format($payment['fine_amount'], 2); ?></span>
+=======
+                            <span class="value">$<?php echo number_format($payment['fine_amount'], 2); ?></span>
+>>>>>>> 7c39a1d92c5527ecd186ad9dfb2b75bcfdcd349c
                         </div>
                     </div>
                 </div>

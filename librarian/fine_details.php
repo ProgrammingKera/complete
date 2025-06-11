@@ -99,7 +99,11 @@ if ($fine['status'] == 'paid') {
                 
                 <div class="info-item">
                     <label>Fine Amount:</label>
+<<<<<<< HEAD
                     <span class="text-danger">Rs <?php echo number_format($fine['amount'], 2); ?></span>
+=======
+                    <span class="text-danger">$<?php echo number_format($fine['amount'], 2); ?></span>
+>>>>>>> 7c39a1d92c5527ecd186ad9dfb2b75bcfdcd349c
                 </div>
                 
                 <div class="info-item">
@@ -145,7 +149,11 @@ if ($fine['status'] == 'paid') {
                         
                         <div class="info-item">
                             <label>Amount Paid:</label>
+<<<<<<< HEAD
                             <span class="text-success">Rs <?php echo number_format($payment['amount'], 2); ?></span>
+=======
+                            <span class="text-success">$<?php echo number_format($payment['amount'], 2); ?></span>
+>>>>>>> 7c39a1d92c5527ecd186ad9dfb2b75bcfdcd349c
                         </div>
                     </div>
                 </div>

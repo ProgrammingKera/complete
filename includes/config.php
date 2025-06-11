@@ -163,7 +163,11 @@ if ($result->num_rows == 0) {
     // Create default librarian account
     $name = "Admin Librarian";
     $email = "admin@library.com";
+<<<<<<< HEAD
     $password = password_hash("password123", PASSWORD_DEFAULT); 
+=======
+    $password = password_hash("password123", PASSWORD_DEFAULT); // Default password
+>>>>>>> 7c39a1d92c5527ecd186ad9dfb2b75bcfdcd349c
     $role = "librarian";
     
     $stmt = $conn->prepare("INSERT INTO users (name, email, password, role) VALUES (?, ?, ?, ?)");

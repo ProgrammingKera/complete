@@ -149,6 +149,7 @@ $overdueBooks = array_filter($currentBooks, function($book) {
                                 <td>
                                     <?php 
                                     if ($book['fine_amount'] > 0) {
+<<<<<<< HEAD
         $fineClass = $book['fine_status'] == 'pending' ? 'text-danger' : 'text-success';
         echo '<span class="' . $fineClass . '">PKR' . number_format($book['fine_amount'], 2) . '</span><br>';
         echo '<small class="text-muted">(' . ucfirst($book['fine_status']) . ')</small>';
@@ -160,6 +161,14 @@ $overdueBooks = array_filter($currentBooks, function($book) {
     } else {
         echo '<span class="text-muted">No fine</span>';
     }
+=======
+                                        $fineClass = $book['fine_status'] == 'pending' ? 'text-danger' : 'text-success';
+                                        echo '<span class="' . $fineClass . '">$' . number_format($book['fine_amount'], 2) . '</span><br>';
+                                        echo '<small class="text-muted">(' . ucfirst($book['fine_status']) . ')</small>';
+                                    } else {
+                                        echo '<span class="text-muted">No fine</span>';
+                                    }
+>>>>>>> 7c39a1d92c5527ecd186ad9dfb2b75bcfdcd349c
                                     ?>
                                 </td>
                             </tr>

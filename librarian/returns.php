@@ -57,7 +57,11 @@ if (isset($_POST['process_return'])) {
                 $stmt->execute();
                 
                 // Send notification to user about fine
+<<<<<<< HEAD
                 $notificationMsg = "You have been charged a fine of PKR" . number_format($fineAmount, 2) . " for late return of '{$issuedBook['title']}'. Please settle the payment at the library.";
+=======
+                $notificationMsg = "You have been charged a fine of $" . number_format($fineAmount, 2) . " for late return of '{$issuedBook['title']}'. Please settle the payment at the library.";
+>>>>>>> 7c39a1d92c5527ecd186ad9dfb2b75bcfdcd349c
                 sendNotification($conn, $issuedBook['user_id'], $notificationMsg);
             }
             
@@ -85,7 +89,11 @@ if (isset($_POST['process_return'])) {
 $today = date('Y-m-d');
 $updateFineSql = "
     UPDATE issued_books
+<<<<<<< HEAD
     SET fine_amount = DATEDIFF(?, return_date) * 100.00
+=======
+    SET fine_amount = DATEDIFF(?, return_date) * 1.00
+>>>>>>> 7c39a1d92c5527ecd186ad9dfb2b75bcfdcd349c
     WHERE status = 'issued' AND ? > return_date
 ";
 $stmt = $conn->prepare($updateFineSql);
@@ -251,7 +259,11 @@ while ($row = $result->fetch_assoc()) {
                         <td>
     <?php 
     if ($book['fine_amount'] > 0) {
+<<<<<<< HEAD
         echo 'PKR ' . number_format($book['fine_amount'], 2);
+=======
+        echo '$' . number_format($book['fine_amount'], 2);
+>>>>>>> 7c39a1d92c5527ecd186ad9dfb2b75bcfdcd349c
     } else {
         // Calculate fine for overdue but not yet returned
         if ($book['status'] == 'issued') {
@@ -264,8 +276,13 @@ while ($row = $result->fetch_assoc()) {
         if ($diff->invert == 0) {
             $daysOverdue = 0;
         }
+<<<<<<< HEAD
         $suggestedFine = $daysOverdue * 100.00; // $1 per day overdue
         echo '<span class="text-danger">PKR' . number_format($suggestedFine, 2) . ' (pending)</span>';
+=======
+        $suggestedFine = $daysOverdue * 1.00; // $1 per day overdue
+        echo '<span class="text-danger">$' . number_format($suggestedFine, 2) . ' (pending)</span>';
+>>>>>>> 7c39a1d92c5527ecd186ad9dfb2b75bcfdcd349c
     } else {
         echo '-';
     }
@@ -302,7 +319,11 @@ while ($row = $result->fetch_assoc()) {
                                             if ($today > $dueDate) {
                                                 $diff = $today->diff($dueDate);
                                                 $daysOverdue = $diff->days;
+<<<<<<< HEAD
                                                 $suggestedFine = $daysOverdue * 100.00; // $1 per day overdue
+=======
+                                                $suggestedFine = $daysOverdue * 1.00; // $1 per day overdue
+>>>>>>> 7c39a1d92c5527ecd186ad9dfb2b75bcfdcd349c
                                             }
                                             ?>
                                             
@@ -317,11 +338,19 @@ while ($row = $result->fetch_assoc()) {
                                                 <?php if ($daysOverdue > 0): ?>
                                                     <div class="alert alert-warning">
                                                         This book is <strong><?php echo $daysOverdue; ?> days</strong> overdue.
+<<<<<<< HEAD
                                                         Suggested fine: PKR<?php echo number_format($suggestedFine, 2); ?>
                                                     </div>
                                                     
                                                     <div class="form-group">
                                                         <label for="fine_amount<?php echo $book['id']; ?>">Fine Amount (PKR)</label>
+=======
+                                                        Suggested fine: $<?php echo number_format($suggestedFine, 2); ?>
+                                                    </div>
+                                                    
+                                                    <div class="form-group">
+                                                        <label for="fine_amount<?php echo $book['id']; ?>">Fine Amount ($)</label>
+>>>>>>> 7c39a1d92c5527ecd186ad9dfb2b75bcfdcd349c
                                                         <input type="number" id="fine_amount<?php echo $book['id']; ?>" name="fine_amount" class="form-control" step="0.01" min="0" value="<?php echo $suggestedFine; ?>">
                                                     </div>
                                                 <?php else: ?>

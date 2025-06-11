@@ -95,7 +95,11 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
     <style>
         .register-page {
              min-height: 100vh;
+<<<<<<< HEAD
             background: linear-gradient(rgba(0, 0, 0, 0.5), rgba(0, 0, 0, 0.5)),
+=======
+            background: linear-gradient(rgba(13, 71, 161, 0.9), rgba(21, 101, 192, 0.9)),
+>>>>>>> 7c39a1d92c5527ecd186ad9dfb2b75bcfdcd349c
                         url('https://images.pexels.com/photos/2041540/pexels-photo-2041540.jpeg');
             background-size: cover;
             background-position: center;

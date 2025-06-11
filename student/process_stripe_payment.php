@@ -22,7 +22,11 @@ if (!$input) {
 }
 
 $paymentMethodId = $input['payment_method_id'] ?? '';
+<<<<<<< HEAD
 $amount = $input['amount'] ?? 0; 
+=======
+$amount = $input['amount'] ?? 0; // Amount in cents
+>>>>>>> 7c39a1d92c5527ecd186ad9dfb2b75bcfdcd349c
 $fineId = $input['fine_id'] ?? 0;
 $currency = $input['currency'] ?? 'usd';
 $userId = $_SESSION['user_id'];
@@ -65,7 +69,11 @@ try {
     require_once '../vendor/autoload.php';
     
     // Use test secret key
+<<<<<<< HEAD
     $stripeSecretKey = 'sk_test_51RXrGJ4KfG2Zot2yUkAYEtgYx2whPy0IlsqgeNSLYFeHrcXrR3PXDz5KNeaTzYsGMnifRapIx8puHjdOJqsYfQIj00MPWfhprw';
+=======
+    $stripeSecretKey = 'sk_test_51RY1WKHHwJPqmmENvSkoklqn2nUt7s5mi1oElbfDsPVlz6roDYkmJi3KTZQwMVSKbum0mXFl8i8tMsN3IIyWDbQW00qlAqgbzS';
+>>>>>>> 7c39a1d92c5527ecd186ad9dfb2b75bcfdcd349c
     \Stripe\Stripe::setApiKey($stripeSecretKey);
     
     // Create a PaymentIntent
@@ -144,7 +152,13 @@ try {
     echo json_encode(['success' => false, 'error' => 'Rate limit exceeded']);
     
 } catch (\Stripe\Exception\InvalidRequestException $e) {
+<<<<<<< HEAD
     echo json_encode(['success' => false, 'error' => 'Invalid request: ' . $e->getMessage()]);
+=======
+    // Invalid parameters were supplied to Stripe's API
+    echo json_encode(['success' => false, 'error' => 'Invalid request']);
+    
+>>>>>>> 7c39a1d92c5527ecd186ad9dfb2b75bcfdcd349c
 } catch (\Stripe\Exception\AuthenticationException $e) {
     // Authentication with Stripe's API failed
     echo json_encode(['success' => false, 'error' => 'Authentication failed']);
